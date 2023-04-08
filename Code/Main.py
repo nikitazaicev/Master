@@ -4,19 +4,10 @@ import torch
 import torch.nn.functional as F
 from torch.nn import Linear, Embedding
 from torch_geometric.data import Data
-import torch_geometric.transforms as T
 from torch_geometric.transforms import NormalizeFeatures
-from torch_geometric.datasets import SuiteSparseMatrixCollection, KarateClub, Planetoid
-import networkx as nx
-import matplotlib.pyplot as plt
-from torch_geometric.utils import to_networkx, train_test_split_edges, negative_sampling
+from torch_geometric.datasets import SuiteSparseMatrixCollection
 from torch_geometric.loader import DataLoader
-from torch_geometric.nn import GCNConv, TransformerConv, SAGEConv
-import time
-import dgl.function as fn
-import dgl
-import dgl.nn as dglnn
-import numpy as np
+from torch_geometric.nn import GCNConv
 from blossom import maxWeightMatching
 torch.manual_seed(123)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -34,7 +25,7 @@ print(f'Number of nodes: {train_data.num_nodes}')
 print(f'Number of edges: {train_data.num_edges}')
 print(f'edge_weight: {train_data.edge_weight}')
 print(f'node_features: {train_data.node_features}')
-
+print(f'edges: {train_data.edge_index}')
 blossominput = []
 for i in range(len(train_data.edge_index[0])):
     blossominput.append(
@@ -90,10 +81,10 @@ for epoch in range(100):
 
     y = train_data.y.type(torch.LongTensor)
     y = y.to(device)
-    print(f'predictions: {out[:10]}')
-    print(f'predictions argmax 0: {torch.argmax(out[0])}')
-    print(f'predictions argmax 1: {torch.argmax(out[1])}')
-    print(f'ys: {y[:10]}')  
+    #print(f'predictions: {out[:10]}')
+    #print(f'predictions argmax 0: {torch.argmax(out[0])}')
+    #print(f'predictions argmax 1: {torch.argmax(out[1])}')
+    #print(f'ys: {y[:10]}')  
     loss = F.nll_loss(out, y)
     loss.backward()
     optimizer.step()
@@ -102,10 +93,10 @@ for epoch in range(100):
     
 model.eval()
 pred = model(train_data)
-for i in range(5000):
-    if(torch.argmax(pred[i])==1):
-        print(f'prediction: {torch.argmax(pred[i])}')  
-        print(f'y: {train_data.y[i]}')  
+#for i in range(5000):
+    #if(torch.argmax(pred[i])==1):
+        #print(f'prediction: {torch.argmax(pred[i])}')  
+        #print(f'y: {train_data.y[i]}')  
 correct = 0
 
 for i in range(len(train_data.y)):
