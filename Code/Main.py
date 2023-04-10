@@ -9,6 +9,8 @@ from torch_geometric.datasets import SuiteSparseMatrixCollection
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import GCNConv
 from blossom import maxWeightMatching
+from LineGraphConverter import ToLineGraph
+from DataLoader import LoadData
 torch.manual_seed(123)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(torch.version.cuda)
@@ -49,6 +51,8 @@ for i in range(len(train_data.edge_index[0])):
 train_data.y = torch.IntTensor(edge_classes)
 print(f'edge_classes: {train_data.y}')
 print(f'edge_classes length: {len(train_data.y)}')
+
+#line_graph = ToLineGraph(train_data)
 
 class EdgeGCN(torch.nn.Module):
     def __init__(self):
