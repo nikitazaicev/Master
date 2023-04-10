@@ -16,15 +16,35 @@ def ToLineGraph(graph, verbose = False):
     print("-------- BEFORE --------")
     PrintInfo(graph)
     
-    new_edgeWeights = torch.ones([len(graph.node_features),1], dtype=torch.float64)
-    new_edge_index = torch.zeros([2, len(graph.node_features)], dtype=torch.float64)
+    new_edge_index = torch.zeros([2, len(graph.edge_weight)], dtype=torch.int32)
+
+    num_edges = 0
+    edge_nodes = [[] for i in range(len(graph.node_features))]
+    for i in range(len(graph.edge_weight)):
+        if i > 5: continue
+        from_node = graph.edge_index[0][i]
+        to_node = graph.edge_index[1][i]
+        
+        print("From node = " + str(from_node))
+        print("To node = " + str(to_node))
+        print("Edges = " + str(num_edges))
+        for edge_node in edge_nodes[to_node]:
+            new_edge_index[0][num_edges] = i
+            new_edge_index[1][num_edges] = edge_node
+            num_edges += 1
+        
+        edge_nodes[to_node].append(i)
     
-    graph.node_features = graph.edge_weight[:]
+    
+
+    new_edgeWeights = torch.ones([len(new_edge_index[0]),1], dtype=torch.float64)
     graph.edge_index = new_edge_index
+    graph.node_features = graph.edge_weight[:]
     
     graph.edge_weight = new_edgeWeights
     graph.edge_attr = new_edgeWeights.flatten()
     graph.num_nodes = len(graph.node_features) 
+    graph.num_edges = len(graph.edge_weight) 
     
     print("-------- AFTER --------")
     PrintInfo(graph)
