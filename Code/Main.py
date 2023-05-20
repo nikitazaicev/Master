@@ -1,5 +1,4 @@
 import os.path as osp
-from sklearn.metrics import roc_auc_score
 import torch
 import torch.nn.functional as F
 from torch.nn import Linear, Embedding
@@ -22,12 +21,17 @@ train_data = dataset[0]
 train_data.edge_weight=train_data.edge_attr.unsqueeze(1)
 train_data.node_features=torch.ones(train_data.num_nodes,1)
 
-print(train_data)
+print("Before Line Graph Transform:", train_data)
 print(f'Number of nodes: {train_data.num_nodes}')
 print(f'Number of edges: {train_data.num_edges}')
 print(f'edge_weight: {train_data.edge_weight}')
 print(f'node_features: {train_data.node_features}')
 print(f'edges: {train_data.edge_index}')
+
+line_graph = ToLineGraph(train_data, verbose = False)
+
+print("Line Graph Convert:", line_graph)
+
 blossominput = []
 for i in range(len(train_data.edge_index[0])):
     blossominput.append(
@@ -51,8 +55,6 @@ for i in range(len(train_data.edge_index[0])):
 train_data.y = torch.IntTensor(edge_classes)
 print(f'edge_classes: {train_data.y}')
 print(f'edge_classes length: {len(train_data.y)}')
-
-#line_graph = ToLineGraph(train_data)
 
 class EdgeGCN(torch.nn.Module):
     def __init__(self):
