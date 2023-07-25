@@ -67,6 +67,7 @@ def ToLineGraph(graph, verbose = False):
     
     graph.edge_weight = new_edgeWeights
     graph.edge_attr = new_edgeWeights.flatten()
+    
     graph.num_nodes = len(graph.node_features) 
     graph.num_edges = len(graph.edge_weight) 
     
