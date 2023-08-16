@@ -67,8 +67,9 @@ print(f'classes length: {len(train_data.y)}')
 class GCN(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = GCNConv(1, 16)
-        self.conv2 = GCNConv(16, 2)
+        self.conv1 = GCNConv(1, 100)
+        self.conv2 = GCNConv(100, 16)
+        self.conv3 = GCNConv(16, 2)
 
     def forward(self, data):
         x, edge_index = data.node_features, data.edge_index
@@ -76,14 +77,17 @@ class GCN(torch.nn.Module):
         x = self.conv1(x, edge_index)
         x = F.relu(x)
         x = self.conv2(x, edge_index)
+        x = F.relu(x)
+        x = self.conv3(x, edge_index)
+        
         return F.log_softmax(x, dim=1)
     
 model = GCN().to(device)
 train_data = train_data.to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.010)#, weight_decay=0.01)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)#, weight_decay=0.01)
 
 model.train()
-for epoch in range(100):
+for epoch in range(1000):
     optimizer.zero_grad()
     out = model(train_data)
 
