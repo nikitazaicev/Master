@@ -1,130 +1,85 @@
-import os.path as osp
 import torch
 import torch.nn.functional as F
-from torch.nn import Linear, Embedding
-from torch_geometric.data import Data
-from torch_geometric.transforms import NormalizeFeatures
-from torch_geometric.datasets import SuiteSparseMatrixCollection, TUDataset
 from torch_geometric.loader import DataLoader
-from torch_geometric.nn import GCNConv
-from blossom import maxWeightMatching
-from LineGraphConverter import ToLineGraph
 from DataLoader import LoadData
-import pickle
+from MyGCN import MyGCN
+
 torch.manual_seed(123)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(torch.version.cuda)
 
 
-dataset = SuiteSparseMatrixCollection('/Data', 'Newman', 'netscience', transform=NormalizeFeatures())
-print("dataset", len(dataset))
-proteins = TUDataset(root='/tmp/PROTEINS', name='PROTEINS')
-print("proteins", len(proteins))
+# dataset = SuiteSparseMatrixCollection('/Data', 'Newman', 'netscience', transform=NormalizeFeatures())
+# print("dataset", len(dataset))
 
-train_data = dataset[0]
-train_data.edge_weight=train_data.edge_attr.unsqueeze(1)
-train_data.node_features=torch.ones(train_data.num_nodes,1)
+# train_data = dataset[0]
+# train_data.edge_weight=train_data.edge_attr.unsqueeze(1)
+# train_data.node_features=torch.ones(train_data.num_nodes,1)
 
-print("Before Line Graph Transform:", train_data)
-print(f'Number of nodes: {train_data.num_nodes}')
-print(f'Number of edges: {train_data.num_edges}')
-print(f'edge_weight: {train_data.edge_weight}')
-print(f'node_features: {train_data.node_features}')
-print(f'edges: {train_data.edge_index}')
+# print("Blossom matching")
+# blossominput = []
+# for i in range(len(train_data.edge_index[0])):
+#     blossominput.append(
+#         (train_data.edge_index[0][i].item(),
+#           train_data.edge_index[1][i].item(),
+#           train_data.edge_weight[i][0].item()))
 
-print("Blossom matching")
-blossominput = []
-for i in range(len(train_data.edge_index[0])):
-    blossominput.append(
-        (train_data.edge_index[0][i].item(),
-         train_data.edge_index[1][i].item(),
-         train_data.edge_weight[i][0].item()))
+# y = maxWeightMatching(blossominput)
+# print(y)
+# original_graph = train_data.clone().to(device)
+# line_graph = ToLineGraph(train_data, verbose = False)
 
-target_data = maxWeightMatching(blossominput)
+original, converted_dataset, target = LoadData(5)
+train_test_split = int(0.8*len(original))
+original_graphs = original[:train_test_split]
+train_data = converted_dataset[:train_test_split]
+val_data = converted_dataset[train_test_split:]
+y = target[:train_test_split]
 
-file_name = 'data/target_data.pkl'
-with open(file_name, 'wb') as file:
-    pickle.dump(target_data, file)
-    print(f'Object successfully saved to "{file_name}"')
+print("Assigning target classes")
+classes = [[] for i in range(len(train_data))]
+for i, graph in enumerate(train_data):
+    for j in range(graph.num_nodes):
+        from_node = original_graphs[i].edge_index[0][j].item()
+        to_node = original_graphs[i].edge_index[1][j].item()
+        if y[i][from_node] == to_node:
+            classes[i].append(1)
+        else:
+            classes[i].append(0)
 
-file = open(file_name, 'rb')
-y = pickle.load(file)
+for i, graph in enumerate(train_data):        
+    graph.y = torch.IntTensor(classes[i])
 
-print(f'matching: {y[:5]}')
-print(f'count: {len(y)}')
-print(f'from node: {train_data.edge_index[0][:5]}')
-print(f'to node: {train_data.edge_index[1][:5]}')
-
-original_graph = train_data.clone().to(device)
-line_graph = ToLineGraph(train_data, verbose = False)
-
-print("Line Graph Convert:", line_graph)
-
-classes = []
-total_matches = 0
-for i in range(train_data.num_nodes):
-    from_node = original_graph.edge_index[0][i].item()
-    to_node = original_graph.edge_index[1][i].item()
-    if y[from_node] == to_node:
-        classes.append(1)
-        total_matches += 1
-    else:
-        classes.append(0)
     
-train_data.y = torch.IntTensor(classes)
-print(f'classes: {train_data.y}')
-print(f'Total matches: {total_matches}')
-print(f'classes length: {len(train_data.y)}')
+model = MyGCN().to(device)
+loader = DataLoader(train_data, batch_size=32, shuffle=True)
 
-class GCN(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv1 = GCNConv(1, 32)
-        self.conv2 = GCNConv(32, 32)
-        self.conv3 = GCNConv(32, 32)
-        self.conv4 = GCNConv(32, 32)
-        self.conv5 = GCNConv(32, 32)
-        self.conv6 = GCNConv(32, 2)
+print("Staring training")
 
-    def forward(self, data):
-        x, edge_index = data.node_features, data.edge_index
-        
-        x = self.conv1(x, edge_index)
-        x = F.relu(x)
-        x = self.conv2(x, edge_index)
-        x = F.relu(x)
-        x = self.conv3(x, edge_index)
-        x = F.relu(x)
-        x = self.conv4(x, edge_index)
-        x = F.relu(x)
-        x = self.conv5(x, edge_index)
-        x = F.relu(x)
-        x = self.conv6(x, edge_index)
-        
-        return F.log_softmax(x, dim=1)
-    
-model = GCN().to(device)
-train_data = train_data.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.002)
-
 model.train()
-epochs = 1000
+epochs = 100
 for epoch in range(epochs):
     optimizer.zero_grad()
-    out = model(train_data)
-
-    y = train_data.y.type(torch.LongTensor)
-    y = y.to(device)
-    loss = F.nll_loss(out, y)
-    loss.backward()
-    optimizer.step()
+    
+    for graphs in loader:
+        graphs = graphs.to(device)
+        out = model(graphs)
+        y = graphs.y.type(torch.LongTensor)
+        y = y.to(device)
+        loss = F.nll_loss(out, y)
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+        
     if (epoch + 1) % 10 == 0:
         print(f'epoch{epoch+1}/100, loss={loss.item():.4f}')
   
+print("Finished training")    
 
-  
+print("Starting evaluation")  
 model.eval()
-pred = model(train_data)
+pred = model(val_data[0].to(device))
 correct = 0
 
 top = torch.max(pred,1)

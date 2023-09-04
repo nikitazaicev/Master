@@ -8,11 +8,9 @@ def PrintInfo(_data, verbose = True):
     print(_data)
     print(f'Number of nodes: {_data.num_nodes}')
     print(f'Number of edges: {_data.num_edges}')
-    #print(f'edge_weight: {_data.edge_weight}')
-    print(f'node_features: {_data.node_features}')
     print(f'edges: {_data.edge_index}')
 
-def ToLineGraph(graph, verbose = False):
+def ToLineGraph(graph, edge_weight, verbose = False):
     
     if verbose: print("-------- BEFORE --------")
     PrintInfo(graph)
@@ -23,16 +21,10 @@ def ToLineGraph(graph, verbose = False):
     bucket = {new_list: [] for new_list in range(graph.num_edges)}
     newEdges = set()
     
-    for i in range(len(graph.edge_weight)):
+    for i in range(len(edge_weight)):
         
         from_node = graph.edge_index[0][i]
         to_node = graph.edge_index[1][i]
-
-        # if verbose: 
-        #     print("Current node = " + str(num_nodes))        
-        #     print("From node = " + str(from_node))
-        #     print("To node = " + str(to_node))
-        #     print("Edges = " + str(num_edges))
             
         newNodes[num_nodes] = (torch.tensor(num_nodes),from_node,to_node)
 
@@ -41,7 +33,7 @@ def ToLineGraph(graph, verbose = False):
 
         num_nodes = num_nodes+1
     
-    for i in range(len(graph.edge_weight)):
+    for i in range(len(edge_weight)):
 
         to_node = graph.edge_index[1][i]
         if to_node.item() in bucket:
@@ -63,34 +55,19 @@ def ToLineGraph(graph, verbose = False):
     
     new_edgeWeights = torch.ones([num_edges,1])
     graph.edge_index = newEdgesTensor
-    graph.node_features = graph.edge_weight[:]
+    graph.node_features = edge_weight[:]
     
-    graph.edge_weight = new_edgeWeights
+    graph.edge_weight = new_edgeWeights.flatten()
     graph.edge_attr = new_edgeWeights.flatten()
     
+    graph.x = graph.node_features.resize(len(graph.node_features),1)
+    graph.pos = None
     graph.num_nodes = len(graph.node_features) 
-    graph.num_edges = len(graph.edge_weight) 
+    graph.num_edges = len(graph.edge_attr) 
     
     if verbose:
         print("-------- AFTER --------")
         PrintInfo(graph)
 
     return graph
-
-def FromLineGraph(graph):
-    
-    return graph
-
-
-dataset = SuiteSparseMatrixCollection('/Data', 'Newman', 'netscience',transform=NormalizeFeatures())
-
-train_data = dataset[0]
-train_data.edge_weight=train_data.edge_attr.unsqueeze(1)
-train_data.node_features=torch.ones(train_data.num_nodes,1)
-
-
-train_data_converted = ToLineGraph(train_data, True)
-
-
-
 
