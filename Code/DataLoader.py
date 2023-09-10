@@ -1,12 +1,6 @@
-import os.path as osp
 import torch
-import torch.nn.functional as F
-from torch.nn import Linear, Embedding
-from torch_geometric.data import Data
 from torch_geometric.transforms import NormalizeFeatures
-from torch_geometric.datasets import SuiteSparseMatrixCollection, GNNBenchmarkDataset
-from torch_geometric.loader import DataLoader
-from torch_geometric.nn import GCNConv
+from torch_geometric.datasets import GNNBenchmarkDataset
 from blossom import maxWeightMatching
 from LineGraphConverter import ToLineGraph
 import pickle
@@ -18,6 +12,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def LoadData(count=1000, datasetname='MNIST'):
     print("LOADING DATASETS")
+    print("-------------------")
     try:
         file_name = 'data/target_data.pkl'
         with open(file_name, 'rb') as file:

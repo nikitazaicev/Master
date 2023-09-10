@@ -50,9 +50,7 @@ def ToLineGraph(graph, edge_weight, verbose = False):
     for idx, e in enumerate(newEdges):
         newEdgesTensor[0][idx] = e[0]
         newEdgesTensor[1][idx] = e[1]
-    
-    #print("New edges", newEdgesTensor)
-    
+        
     new_edgeWeights = torch.ones([num_edges,1])
     graph.edge_index = newEdgesTensor
     graph.node_features = edge_weight[:]
