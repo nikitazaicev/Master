@@ -27,4 +27,4 @@ class MyGCN(torch.nn.Module):
         x = F.relu(x)
         x = self.conv6(x, edge_index)
     
-        return F.log_softmax(x, dim=1) #torch.sigmoid(x.flatten()) #F.log_softmax(x, dim=1)
+        return x #torch.sigmoid(x.flatten()) #F.log_softmax(x, dim=1)

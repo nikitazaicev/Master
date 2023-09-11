@@ -44,11 +44,13 @@ print("-------------------")
 model = MyGCN().to(device)
 model.train()
 loader = DataLoader(train_data, batch_size=1, shuffle=True)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)#, weight_decay=0.01)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+classWeights = torch.FloatTensor([0.1,0.9]).to(device)
 criterion = torch.nn.BCELoss()
-#criterion = torch.nn.CrossEntropyLoss()
+criterion = torch.nn.CrossEntropyLoss(weight=classWeights)
 
-epochs = 100
+
+epochs = 200
 for epoch in range(epochs):
     
     for graphs in loader:
@@ -57,7 +59,9 @@ for epoch in range(epochs):
         graphs = graphs.to(device)
         out = model(graphs)
         y = graphs.y.to(device)
-        loss = F.nll_loss(out, y) # criterion(out, y)
+        #print(out.size())
+        #print(y.size())
+        loss = criterion(out, y) #F.nll_loss(out, y) # criterion(out, y)
         loss.backward()
         optimizer.step()
         
@@ -86,9 +90,17 @@ val_y_item = torch.FloatTensor(classes).to(device)
 
 print("GNN-score based greedy pick")
 
-pred = model(val_graph)
-print("Prediction demo: ", pred[:10])
-print("Expected prediction: ", val_y_item[:10])
+pred = model(val_graph)#F.log_softmax(, dim=1)
+scores = []
+for p in pred:
+    if p[0] > p[1]:
+        scores.append(-100.0)
+    else:
+        scores.append(p[1])      
+scores = torch.FloatTensor(scores)
+print("Prediction: ", pred[:10])
+print("Scores: ", scores[:10])
+print("Truth: ", val_y_item[:10])
 picked_edges = set()
 picked_nodes = set()
 weightSum = 0
@@ -96,7 +108,7 @@ step = 1
 while (val_original.num_nodes-len(picked_nodes)) > 2:
     print("Step - ", step)
     sort_class = 1
-    weight, nodes, edges = gp.GreedyScores(pred, val_graph, val_original)
+    weight, nodes, edges = gp.GreedyScores(scores, val_graph, val_original)
     if (len(edges)==0) : break
     picked_edges.update(edges)
     picked_nodes.update(nodes)

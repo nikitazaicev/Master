@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 from torch_geometric.datasets import SuiteSparseMatrixCollection, GNNBenchmarkDataset
 from ssgetpy import search, fetch
 from DataLoader import LoadData
@@ -40,11 +41,15 @@ def ReduceGraph(graph, nodes_to_remove, original = None):
     return graph
 
 
-print("TEST NODE DELETION")
-original, converted_data, target = LoadData(1)
+m = torch.nn.LogSoftmax(dim=1)
+t = torch.randn(2, 3)
+output = m(t)
+print(output)
+# print("TEST NODE DELETION")
+# original, converted_data, target = LoadData(1)
 
-print("BEFORE", converted_data)
+# print("BEFORE", converted_data)
 
-converted_data = ReduceGraph(converted_data[0], [5,9])
+# converted_data = ReduceGraph(converted_data[0], [5,9])
 
-print("AFTER", converted_data)
+# print("AFTER", converted_data)
