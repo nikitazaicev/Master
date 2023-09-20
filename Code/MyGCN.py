@@ -1,30 +1,27 @@
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GCNConv, Linear
 
 class MyGCN(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = GCNConv(1, 32)
-        self.conv2 = GCNConv(32, 32)
-        self.conv3 = GCNConv(32, 32)
-        self.conv4 = GCNConv(32, 32)
-        self.conv5 = GCNConv(32, 32)
-        self.conv6 = GCNConv(32, 2)
+        self.conv1 = GCNConv(1, 64)#, aggr="max")
+        self.conv2 = GCNConv(64, 64)#, aggr="max")
+        
+        self.lin = Linear(64, 2)
 
     def forward(self, data):        
         x, edge_index = data.x, data.edge_index
-        
+        #print("1 = " , x[:10])
         x = self.conv1(x, edge_index)
         x = F.relu(x)
+        #x = F.normalize(x, dim = 1)
+        #print("2 = " , x[:10])
         x = self.conv2(x, edge_index)
         x = F.relu(x)
-        x = self.conv3(x, edge_index)
-        x = F.relu(x)
-        x = self.conv4(x, edge_index)
-        x = F.relu(x)
-        x = self.conv5(x, edge_index)
-        x = F.relu(x)
-        x = self.conv6(x, edge_index)
-    
-        return x #torch.sigmoid(x.flatten()) #F.log_softmax(x, dim=1)
+        #x = F.normalize(x, dim = 1)
+        #print("3 = " , x[:10])        
+        x = self.lin(x)
+        #x = F.normalize(x, dim = 1)
+        #print("4 = " , x[:10])
+        return F.log_softmax(x, dim=1) #x

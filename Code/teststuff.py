@@ -40,16 +40,32 @@ def ReduceGraph(graph, nodes_to_remove, original = None):
     
     return graph
 
+def GenerateAdjMatrix(graph, edge_weight):
+    adjMat = torch.zeros(graph.num_nodes,graph.num_nodes)
+    print(adjMat.size())
+    for i in range(len(edge_weight)):
+        from_node = graph.edge_index[0][i].item()
+        to_node = graph.edge_index[1][i].item()
+        adjMat[from_node][to_node] = edge_weight[i]
+        adjMat[to_node][from_node] = edge_weight[i]
+    return adjMat
+        
+# original, converted_dataset, target = LoadData(5)    
+# graph = converted_dataset[0]
+# print(GenerateAdjMatrix(graph, graph.edge_weight)) 
 
-m = torch.nn.LogSoftmax(dim=1)
-t = torch.randn(2, 3)
-output = m(t)
-print(output)
-# print("TEST NODE DELETION")
-# original, converted_data, target = LoadData(1)
+out = torch.tensor([[-0.7230, -0.6642],
+                    [-0.6654, -0.7217]])
+print(torch.exp(out))
+y = torch.tensor([1,0])
+loss = F.nll_loss(out, y)
+print(loss)
 
-# print("BEFORE", converted_data)
 
-# converted_data = ReduceGraph(converted_data[0], [5,9])
 
-# print("AFTER", converted_data)
+
+
+
+
+
+

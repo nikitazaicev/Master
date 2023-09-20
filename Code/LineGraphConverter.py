@@ -1,10 +1,7 @@
 import torch
-from torch_geometric.transforms import NormalizeFeatures
-from torch_geometric.datasets import SuiteSparseMatrixCollection
 
 
-def PrintInfo(_data, verbose = True):
-    if not verbose: return
+def PrintInfo(_data):
     print(_data)
     print(f'Number of nodes: {_data.num_nodes}')
     print(f'Number of edges: {_data.num_edges}')
@@ -12,13 +9,14 @@ def PrintInfo(_data, verbose = True):
 
 def ToLineGraph(graph, edge_weight, verbose = False):
     
-    if verbose: print("-------- BEFORE --------")
-    PrintInfo(graph)
+    if verbose: 
+        print("-------- BEFORE --------")
+        PrintInfo(graph)
     
     num_edges = 0
     num_nodes = 0
     newNodes = {}
-    bucket = {new_list: [] for new_list in range(graph.num_edges)}
+    bucket = {new_list: [] for new_list in range(graph.num_nodes)}
     newEdges = set()
     
     for i in range(len(edge_weight)):
@@ -33,19 +31,21 @@ def ToLineGraph(graph, edge_weight, verbose = False):
 
         num_nodes = num_nodes+1
     
+    assert(num_nodes==len(edge_weight))
+    
     for i in range(len(edge_weight)):
 
         to_node = graph.edge_index[1][i]
         if to_node.item() in bucket:
             for n in bucket[to_node.item()]:
                 for m in bucket[to_node.item()]:
-                    if n!=m: 
-                        newEdges.add((n,m)) # and (m,n) not in newEdges
+                    if n!=m and (m,n) not in newEdges: 
+                        newEdges.add((n,m))
                         
     newEdges = sorted(newEdges, key=lambda x : x[0])
     
     num_edges = len(newEdges)
-    newEdgesTensor = torch.zeros([2,num_edges], dtype=torch.int)
+    newEdgesTensor = torch.zeros([2,num_edges], dtype=torch.long)
     
     for idx, e in enumerate(newEdges):
         newEdgesTensor[0][idx] = e[0]
@@ -69,3 +69,6 @@ def ToLineGraph(graph, edge_weight, verbose = False):
 
     return graph
 
+
+        
+        
