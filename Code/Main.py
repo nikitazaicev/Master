@@ -9,7 +9,7 @@ torch.manual_seed(123)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Current CUDA version: ", torch.version.cuda, "\n")
 
-original, converted_dataset, target = LoadData(5)
+original, converted_dataset, target = LoadData(1)
 
 print(original[0])
 print("-------------------\n")
@@ -18,18 +18,18 @@ print("-------------------\n")
 print(target[0], len(target[0]))
 print("-------------------\n")
 
-original, converted_dataset, target = LoadTestData()
+# original, converted_dataset, target = LoadTestData()
 
-print(original[0])
-print(original[0].edge_attr)
-print(original[0].node_features)
-print("-------------------\n")
-print(converted_dataset[0])
-print(converted_dataset[0].edge_attr)
-print(converted_dataset[0].node_features)
-print("-------------------\n")
-print(target[0], len(target[0]))
-print("-------------------\n")
+# print(original[0])
+# print(original[0].edge_attr)
+# print(original[0].node_features)
+# print("-------------------\n")
+# print(converted_dataset[0])
+# print(converted_dataset[0].edge_attr)
+# print(converted_dataset[0].node_features)
+# print("-------------------\n")
+# print(target[0], len(target[0]))
+# print("-------------------\n")
 
 
 train_test_split = int(0.8*len(original))
@@ -140,10 +140,7 @@ while (val_original.num_nodes-len(picked_nodes)) > 2:
     print("Remaining nodes = ", val_original.num_nodes-len(picked_nodes))
     print("Remaining edges = ", val_original.num_nodes-len(picked_edges))
     print("Creating remaining graph...")
-    break
-    # rem_graph = val_graph
-    # print("REMAINING NODES = ", rem_graph.num_nodes)
-    # print("REMAINING EDGES = ", len(rem_graph.edge_attr))    
+    break    
     step += 1
 
 print("Remaining GNN scores all negative.")
@@ -174,6 +171,7 @@ correct_picked = 0
 false_picked = 0
 correct_dropped = 0 
 false_dropped = 0    
+print("picked_edges", picked_edges)
 for i in range(len(val_y_item)):
     from_node = val_original.edge_index[0][i].item()
     to_node = val_original.edge_index[1][i].item()
