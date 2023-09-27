@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch_geometric.loader import DataLoader
 import GreedyPicker as gp
-from DataLoader import LoadData, LoadTestData
+from DataLoader import LoadData, LoadTestData, CountDegree
 from MyGCN import MyGCN
 
 torch.manual_seed(123)
@@ -17,6 +17,12 @@ print(converted_dataset[0])
 print("-------------------\n")
 print(target[0], len(target[0]))
 print("-------------------\n")
+# print("DEG = ", 
+#       CountDegree(converted_dataset[0].edge_index, 
+#       converted_dataset[0].num_nodes))
+print("-------------------\n")
+
+
 
 # original, converted_dataset, target = LoadTestData()
 

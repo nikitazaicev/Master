@@ -78,4 +78,12 @@ def LoadData(count=1000, datasetname='MNIST'):
     original = GNNBenchmarkDataset('/Data', datasetname, transform=NormalizeFeatures())[:count]
     return original, converted_dataset, target
     
+
+def CountDegree(edge_index, num_nodes):
+    deg = [0] * num_nodes
+    for i in range(len(edge_index[0])):
+        from_node = edge_index[0][i].item()
+        to_node = edge_index[1][i].item()
+        deg[from_node]+=1
+    return deg
 # original, converted_dataset, target = LoadData(5)
