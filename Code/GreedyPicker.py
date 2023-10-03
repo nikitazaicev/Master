@@ -37,7 +37,7 @@ def GreedyScores(pred, graph, original_g, threshold = 0.5):
         
         if (sorted_pred.values[i] >= threshold 
             and (from_node not in picked_nodes 
-            or to_node not in picked_nodes)):
+            and to_node not in picked_nodes)):
             
             weightSum += original_g.edge_attr[sorted_i]
             picked_edges.add((from_node, to_node))

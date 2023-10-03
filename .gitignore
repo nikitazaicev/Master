@@ -4,3 +4,10 @@ Code/data/target_data.pkl
 Code/data/target_data.pkl
 Code/data/target_data.pkl
 *.pkl
+*.pt
+Code/data/MUTAG/raw/MUTAG_A.txt
+Code/data/MUTAG/raw/MUTAG_edge_labels.txt
+Code/data/MUTAG/raw/MUTAG_graph_indicator.txt
+Code/data/MUTAG/raw/MUTAG_graph_labels.txt
+Code/data/MUTAG/raw/MUTAG_node_labels.txt
+Code/data/MUTAG/raw/README.txt

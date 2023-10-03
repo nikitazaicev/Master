@@ -2,40 +2,26 @@ import torch
 import torch.nn.functional as F
 from torch_geometric.loader import DataLoader
 import GreedyPicker as gp
-from DataLoader import LoadData, LoadTestData, CountDegree
+import DataLoader as dl
 from MyGCN import MyGCN
 
 torch.manual_seed(123)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Current CUDA version: ", torch.version.cuda, "\n")
 
-original, converted_dataset, target = LoadData(1)
+original, converted_dataset, target = dl.LoadData(1)
 
+original, converted_dataset, target = dl.LoadTestData()
+
+print("Data stats")
+print("----------------")
 print(original[0])
+print(f'Undirected = {original[0].is_undirected()}')
+print(f'Nodes in original graph = {original[0].num_nodes}')
+print(f'Edges in original graph = {len(original[0].edge_index[0])}')
+print(f'Nodes in line graph = {converted_dataset[0].num_nodes}')
+print(f'Edges in line graph = {len(converted_dataset[0].edge_index[0])}')
 print("-------------------\n")
-print(converted_dataset[0])
-print("-------------------\n")
-print(target[0], len(target[0]))
-print("-------------------\n")
-# print("DEG = ", 
-#       CountDegree(converted_dataset[0].edge_index, 
-#       converted_dataset[0].num_nodes))
-print("-------------------\n")
-
-
-
-# original, converted_dataset, target = LoadTestData()
-
-# print(original[0])
-# print(original[0].edge_attr)
-# print(original[0].node_features)
-# print("-------------------\n")
-# print(converted_dataset[0])
-# print(converted_dataset[0].edge_attr)
-# print(converted_dataset[0].node_features)
-# print("-------------------\n")
-# print(target[0], len(target[0]))
-# print("-------------------\n")
 
 
 train_test_split = int(0.8*len(original))
@@ -43,6 +29,8 @@ train_test_split = int(0.8*len(original))
 original_graphs = original[:1]#[:train_test_split]
 train_data = converted_dataset[:1]#[:train_test_split]
 y = target[:1]#[:train_test_split]
+
+# val_original_graphs, val_data, val_y = dl.LoadValExample()
 
 val_original_graphs = original[:1]#[train_test_split:]
 val_data = converted_dataset[:1]#[train_test_split:]
@@ -66,6 +54,9 @@ def AssignTargetClasses(data, original):
     
 
 AssignTargetClasses(train_data, original_graphs)
+print("Saveing visualization file")
+dl.VisualizeConverted(train_data[0])
+dl.VisualizeOriginal(original[0])
 print("------------------- \n")
 
 print("STARING TRAINING")
@@ -73,8 +64,8 @@ print("-------------------")
 model = MyGCN().to(device)
 
 loader = DataLoader(train_data, batch_size=1, shuffle=True)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01)#, weight_decay=0.01)
-classWeights = torch.FloatTensor([0.4,0.6]).to(device)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.08)#, weight_decay=0.01)
+classWeights = torch.FloatTensor([0.2,0.8]).to(device)
 criterion = torch.nn.CrossEntropyLoss(weight=classWeights)
 
 
@@ -88,7 +79,7 @@ for epoch in range(epochs):
         graphs = graphs.to(device)
         out = model(graphs).to(device)
         y = graphs.y.to(device)
-        loss = F.nll_loss(out, y)#, weight=classWeights) #criterion(out, y) # 
+        loss = F.nll_loss(out, y, weight=classWeights) #criterion(out, y) # 
         loss.backward()
         optimizer.step()
         
@@ -139,7 +130,7 @@ while (val_original.num_nodes-len(picked_nodes)) > 2:
     if (len(edges)==0) : break
     picked_edges.update(edges)
     picked_nodes.update(nodes)
-    weightSum += weightSum
+    weightSum += weight
     print("Weight sum = ", weightSum)
     print("Total picked nodes = ", len(picked_nodes))
     print("Total picked edges = ", len(picked_edges))
@@ -196,10 +187,24 @@ for i in range(len(val_y_item)):
         correct_dropped+=1
         correct+=1
 
-print(f'CORRECTLY PICKED matches out of optimal: {correct_picked}/{opt_matches}')
-print(f'CORRECTLY DROPPED edges out of optimal: {correct_dropped}/{opt_drops}')
-print(f'FALSE PICKED: {false_picked}/{opt_drops}')
-print(f'FALSE DROPPED: {false_dropped}/{opt_matches}')
+tp = correct_picked/opt_matches
+tf = correct_dropped/opt_drops
+fp = false_picked/opt_drops
+fn = false_dropped/opt_matches
+
+try:
+    precision = tp/(tp+fp)
+    recall = tp/(tp+fn)
+    f1score = (2*precision*recall)/(precision+recall)    
+except Exception:
+    f1score = 0.0
+
+print(f'TRUE POSITIVE (opt): {correct_picked}/{opt_matches}')
+print(f'TRUE NEGATIVE (opt): {correct_dropped}/{opt_drops}')
+print(f'FALSE POSITIVE (opt): {false_picked}/{opt_drops}')
+print(f'FALSE NEGATIVE (opt): {false_dropped}/{opt_matches}')
+print(f'F1 SCORE (opt): {f1score}')
+
 
 print(f'Total WEIGHT out of optimal: {weightSum:.2f}/{weightMax:.2f} ')
 print(f'Total WEIGHT out of standard greedy: {weightSum:.2f}/{weightGreedy:.2f} ')

@@ -18,9 +18,9 @@ def ToLineGraph(graph, edge_weight, verbose = False):
     newNodes = {}
     bucket = {new_list: [] for new_list in range(graph.num_nodes)}
     newEdges = set()
-    
-    for i in range(len(edge_weight)):
-        
+    totalEdges = len(edge_weight)
+    for i in range(totalEdges ):
+
         from_node = graph.edge_index[0][i]
         to_node = graph.edge_index[1][i]
             
@@ -31,16 +31,17 @@ def ToLineGraph(graph, edge_weight, verbose = False):
 
         num_nodes = num_nodes+1
     
-    assert(num_nodes==len(edge_weight))
+    assert(num_nodes==totalEdges)
     
-    for i in range(len(edge_weight)):
+    for i in range(totalEdges):
 
         to_node = graph.edge_index[1][i]
         if to_node.item() in bucket:
             for n in bucket[to_node.item()]:
                 for m in bucket[to_node.item()]:
-                    if n!=m and (m,n) not in newEdges: 
+                    if n!=m and (m,n) not in newEdges and (n,m) not in newEdges: 
                         newEdges.add((n,m))
+                        newEdges.add((m,n))
                         
     newEdges = sorted(newEdges, key=lambda x : x[0])
     

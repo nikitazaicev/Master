@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
-from torch_geometric.datasets import SuiteSparseMatrixCollection, GNNBenchmarkDataset
+from torch_geometric.datasets import SuiteSparseMatrixCollection, GNNBenchmarkDataset, KarateClub
+from torch_geometric.transforms import NormalizeFeatures
 from ssgetpy import search, fetch
 from DataLoader import LoadData
 import numpy as np
@@ -15,11 +16,7 @@ print(torch.version.cuda)
 # print(data[0].edge_index)
 
 def ReduceGraph(graph, nodes_to_remove, original = None):
-    
-    temp_edge_index = graph.edge_index
-    temp_edge_weight = graph.edge_index
-    temp_edge_attr = graph.edge_index
-    
+        
     for n in nodes_to_remove:
         for idx, from_node in enumerate(graph.edge_index[0]):
             if from_node == n: 
@@ -49,21 +46,6 @@ def GenerateAdjMatrix(graph, edge_weight):
         adjMat[from_node][to_node] = edge_weight[i]
         adjMat[to_node][from_node] = edge_weight[i]
     return adjMat
-        
-# original, converted_dataset, target = LoadData(5)    
-# graph = converted_dataset[0]
-# print(GenerateAdjMatrix(graph, graph.edge_weight)) 
-
-out = torch.tensor([[-0.7230, -0.6642],
-                    [-0.6654, -0.7217]])
-print(torch.exp(out))
-y = torch.tensor([1,0])
-loss = F.nll_loss(out, y)
-print(loss)
-
-
-
-
 
 
 
