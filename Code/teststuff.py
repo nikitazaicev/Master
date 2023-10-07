@@ -15,26 +15,39 @@ print(torch.version.cuda)
 # data = fetch(group = 'HB', nzbounds = (None, 1000))
 # print(data[0].edge_index)
 
-def ReduceGraph(graph, nodes_to_remove, original = None):
-        
-    for n in nodes_to_remove:
+def ReduceGraph(graph, pickedNodeIds):
+
+    ids_toRemove = set()
+    for n in pickedNodeIds:
         for idx, from_node in enumerate(graph.edge_index[0]):
-            if from_node == n: 
-                from_nodes = graph.edge_index[0]
-                to_nodes = graph.edge_index[1]
-                from_nodes = torch.cat([graph.edge_index[0][:idx], graph.edge_index[0][idx+1:]])
-                to_nodes = torch.cat([graph.edge_index[1][:idx], graph.edge_index[1][idx+1:]])
-                temp = torch.cat([from_nodes,to_nodes])
-                graph.edge_index = temp.view(2,len(graph.edge_index[0])-1)
-                graph.edge_weight = torch.cat([graph.edge_weight[:idx], graph.edge_weight[idx+1:]])
-                graph.edge_attr = torch.cat([graph.edge_attr[:idx], graph.edge_attr[idx+1:]])
-                
-        graph.node_features = torch.cat([graph.node_features[:n], graph.node_features[n+1:]])
-        graph.x = torch.cat([graph.x[:n], graph.x[n+1:]])
+            if from_node == n or graph.edge_index[1][idx] == n and idx not in ids_toRemove: 
+                ids_toRemove.add(idx)
+
+        graph.node_features[n] = 0
+        graph.x[n][0] = 0
+
+    edges_to_keep = len(graph.edge_index[0]) - len(ids_toRemove)
+    new_edges = torch.zeros([2,edges_to_keep],dtype=torch.int)
+    new_weights = torch.zeros([edges_to_keep],dtype=torch.float)
+    new_atrs = torch.zeros([edges_to_keep],dtype=torch.float)     
     
-    graph.num_nodes = len(graph.node_features) 
+    i = 0
+    for idx in range(len(graph.edge_index[0])):    
+        if idx in ids_toRemove: continue
+        new_edges[0][i] = graph.edge_index[0][idx]
+        new_edges[1][i] = graph.edge_index[1][idx]
+        new_weights[i] = graph.edge_weight[idx]
+        new_atrs[i] = graph.edge_attr[idx]
+        i+=1
+            
+    graph.edge_index = new_edges
+    graph.edge_weight = new_weights
+    graph.edge_attr = new_atrs               
+    
+    #graph.num_nodes = len(graph.node_features) 
     graph.num_edges = len(graph.edge_attr) 
-    
+
+    assert(graph.num_nodes==graph.num_nodes)
     return graph
 
 def GenerateAdjMatrix(graph, edge_weight):

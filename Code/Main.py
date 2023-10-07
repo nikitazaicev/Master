@@ -3,39 +3,42 @@ import torch.nn.functional as F
 from torch_geometric.loader import DataLoader
 import GreedyPicker as gp
 import DataLoader as dl
+import teststuff
 from MyGCN import MyGCN
+
 
 torch.manual_seed(123)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Current CUDA version: ", torch.version.cuda, "\n")
 
-original, converted_dataset, target = dl.LoadData(1)
+#original, converted_dataset, target = dl.LoadData(1000)
 
 original, converted_dataset, target = dl.LoadTestData()
 
 print("Data stats")
 print("----------------")
 print(original[0])
-print(f'Undirected = {original[0].is_undirected()}')
+print(f'Total graphs = {len(original)}')
+print(f'Undirected original = {original[0].is_undirected()}')
+print(f'Undirected converted = {converted_dataset[0].is_undirected()}')
 print(f'Nodes in original graph = {original[0].num_nodes}')
 print(f'Edges in original graph = {len(original[0].edge_index[0])}')
 print(f'Nodes in line graph = {converted_dataset[0].num_nodes}')
 print(f'Edges in line graph = {len(converted_dataset[0].edge_index[0])}')
 print("-------------------\n")
 
-
 train_test_split = int(0.8*len(original))
 
-original_graphs = original[:1]#[:train_test_split]
-train_data = converted_dataset[:1]#[:train_test_split]
-y = target[:1]#[:train_test_split]
+original_graphs = original[:train_test_split]#[:1]#[:train_test_split]
+train_data = converted_dataset[:train_test_split]#[:1]#[:train_test_split]
+y = target[:train_test_split]#[:1]#[:train_test_split]
 
-# val_original_graphs, val_data, val_y = dl.LoadValExample()
+val_original_graphs = original[train_test_split:]#[:1]#[train_test_split:]
+val_data = converted_dataset[train_test_split:]#[:1]#[train_test_split:]
+val_y = target[train_test_split:]#[:1]#[train_test_split:]
 
-val_original_graphs = original[:1]#[train_test_split:]
-val_data = converted_dataset[:1]#[train_test_split:]
-val_y = target[:1]#[train_test_split:]
- 
+#val_original_graphs, val_data, val_y = dl.LoadValExample()
+
 print("Assigning target classes")
 def AssignTargetClasses(data, original):
     classes = [[] for i in range(len(data))]         
@@ -63,8 +66,8 @@ print("STARING TRAINING")
 print("-------------------")
 model = MyGCN().to(device)
 
-loader = DataLoader(train_data, batch_size=1, shuffle=True)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.08)#, weight_decay=0.01)
+loader = DataLoader(train_data, batch_size=10, shuffle=True)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)#, weight_decay=0.01)
 classWeights = torch.FloatTensor([0.2,0.8]).to(device)
 criterion = torch.nn.CrossEntropyLoss(weight=classWeights)
 
@@ -79,7 +82,7 @@ for epoch in range(epochs):
         graphs = graphs.to(device)
         out = model(graphs).to(device)
         y = graphs.y.to(device)
-        loss = F.nll_loss(out, y, weight=classWeights) #criterion(out, y) # 
+        loss = F.nll_loss(out, y)#, weight=classWeights) #criterion(out, y) # 
         loss.backward()
         optimizer.step()
         
@@ -108,39 +111,35 @@ val_y_item = torch.FloatTensor(classes).to(device)
 
 print("GNN-score based greedy pick")
 
-pred = torch.exp(model(val_graph))
-scores = []
-for p in pred:
-    if p[0] > p[1]:
-        scores.append(0.0)
-    else:
-        scores.append(p[1])      
-scores = torch.FloatTensor(scores)
-print("Prediction: ", pred[:10])
-print("Scores: ", scores[:10])
-print("Truth: ", val_y_item[:10])
+
 picked_edges = set()
-picked_nodes = set()
 weightSum = 0
 step = 1
-while (val_original.num_nodes-len(picked_nodes)) > 2:
+while (val_original.num_nodes-2*len(picked_edges)) > 2:
     print("Step - ", step)
-    sort_class = 1
-    weight, nodes, edges = gp.GreedyScores(scores, val_graph, val_original)
-    if (len(edges)==0) : break
-    picked_edges.update(edges)
-    picked_nodes.update(nodes)
+   
+    pred = torch.exp(model(val_graph))
+    scores = []
+    for p in pred:
+        if p[0] > p[1]: scores.append(0.0)
+        else: scores.append(p[1])      
+    scores = torch.FloatTensor(scores)
+    weight, originalEdgeIds = gp.GreedyScores(scores, val_graph, val_original, picked_edges)
+    picked_edges.update(originalEdgeIds)
     weightSum += weight
-    print("Weight sum = ", weightSum)
-    print("Total picked nodes = ", len(picked_nodes))
-    print("Total picked edges = ", len(picked_edges))
-    print("Remaining nodes = ", val_original.num_nodes-len(picked_nodes))
-    print("Remaining edges = ", val_original.num_nodes-len(picked_edges))
-    print("Creating remaining graph...")
-    break    
+    print("Total original edges picked = ", len(picked_edges))
+    print("Current weight sum = ", weightSum)
+    if (len(originalEdgeIds) == 0) : break
+
+    print("Removing picked nodes...")
+    print("Total nodes in converted graph = ", len(val_graph.x))
+    val_graph = teststuff.ReduceGraph(val_graph, originalEdgeIds).to(device)
+    print("Total nodes in converted graph remains = ", len(val_graph.x)-len(picked_edges))
+    
+    #break    
     step += 1
 
-print("Remaining GNN scores all negative.")
+print("No high enough GNN scores remaining.")
 print("------------------- \n") 
 
 print("STARTING STANDARD GREEDY SEARCH.")
@@ -173,8 +172,7 @@ for i in range(len(val_y_item)):
     from_node = val_original.edge_index[0][i].item()
     to_node = val_original.edge_index[1][i].item()
     
-    picked_contains = ((from_node, to_node) in picked_edges 
-                       or (to_node, from_node) in picked_edges)
+    picked_contains = (i in picked_edges)
 
     if val_y_item[i] == 1 and picked_contains:
         correct_picked+=1

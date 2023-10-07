@@ -44,35 +44,38 @@ def RemoveDoubleEdges(graph):
         except Exception:
             pass
 
-    print(f'Double edges removed out of total {deleted}/{total_edges} ')
+    #print(f'Double edges removed out of total {deleted}/{total_edges} ')
     
     return new_edges, new_weights, new_atrs
 
 def LoadTestData():
      
     
-    data = TUDataset("/Data","MUTAG",transform=NormalizeFeatures())[0]
-    #data = KarateClub(transform=NormalizeFeatures())
+    datas = TUDataset("/Data","MUTAG",transform=NormalizeFeatures())
+    #datas = KarateClub(transform=NormalizeFeatures())
+    datalist = []
+    original = []
+    for data in datas:
+        testdata = Data()
+        new_edges, new_weights, new_atrs = RemoveDoubleEdges(data)
+        
+        testdata.edge_index = new_edges
+        testdata.edge_weight = torch.rand(len(testdata.edge_index[0]))
+        testdata.edge_attr = testdata.edge_weight.flatten()
+        testdata.num_nodes = len(data.x) 
+        testdata.num_edges = len(data.edge_index[0])
+        nodefeats = torch.ones([testdata.num_nodes])
+        testdata.node_features = nodefeats
+        testdata.x = torch.ones([testdata.num_nodes,1])
+        original.append(testdata.clone())
+        datalist.append(testdata)
     
-    testdata = Data()
-    new_edges, new_weights, new_atrs = RemoveDoubleEdges(data)
-    
-    testdata.edge_index = new_edges
-    testdata.edge_weight = torch.rand(len(testdata.edge_index[0]))
-    testdata.edge_attr = testdata.edge_weight.flatten()
-    testdata.num_nodes = len(data.x) 
-    testdata.num_edges = len(data.edge_index[0])
-    nodefeats = torch.ones([testdata.num_nodes])
-    testdata.node_features = nodefeats
-    testdata.x = torch.ones([testdata.num_nodes,1])
-    testdata = [testdata]
-    original = [testdata[0].clone()]
-    for g in testdata: g.num_edges = len(testdata[0].x)
+    for data in datas: data.num_edges = len(data.x)
     target = []
     converted_dataset = []
     
-    for dataitem in testdata[:1]:
-        print("Blossom matching")
+    print("Blossom matching")
+    for dataitem in datalist:
         blossominput = []
         for i in range(len(dataitem.edge_index[0])):
             blossominput.append((dataitem.edge_index[0][i].item(),
@@ -170,8 +173,9 @@ def LoadData(count=1000, datasetname='MNIST'):
         target = []
         converted_dataset = []
         
+        
+        print("Blossom matching")
         for dataitem in dataset:
-            print("Blossom matching")
             blossominput = []
             for i in range(len(dataitem.edge_index[0])):
                 blossominput.append((dataitem.edge_index[0][i].item(),
