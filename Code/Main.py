@@ -74,7 +74,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.001)#, weight_decay=0.01)
 classWeights = torch.FloatTensor([0.1,0.9]).to(device)
 criterion = torch.nn.CrossEntropyLoss(weight=classWeights)
 
-epochs = 10
+epochs = 100
 torch.manual_seed(123)
 model.train()
 for epoch in range(epochs):
