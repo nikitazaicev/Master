@@ -5,10 +5,10 @@ from torch_geometric.nn import GCNConv, Linear
 class MyGCN(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = GCNConv(1, 64)#, aggr="max")
-        self.conv2 = GCNConv(64, 64)#, aggr="max")
+        self.conv1 = GCNConv(1, 640)#, aggr="max")
+        self.conv2 = GCNConv(640, 640)#, aggr="max")
         
-        self.lin = Linear(64, 2)
+        self.lin = Linear(640, 2)
 
     def forward(self, data):        
         x, edge_index = data.x, data.edge_index

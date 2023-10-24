@@ -17,6 +17,7 @@ def RemoveDoubleEdges(graph):
     idx = dict()
     deleted = 0
     total_edges = len(graph.edge_index[0])
+
     for i in range(total_edges):
         from_node = graph.edge_index[0][i].item()
         to_node = graph.edge_index[1][i].item()
@@ -44,33 +45,32 @@ def RemoveDoubleEdges(graph):
         except Exception:
             pass
 
-    #print(f'Double edges removed out of total {deleted}/{total_edges} ')
-    
     return new_edges, new_weights, new_atrs
 
 def LoadTestData():
      
-    
-    datas = TUDataset("/Data","MUTAG",transform=NormalizeFeatures())
     #datas = KarateClub(transform=NormalizeFeatures())
+    #datas = TUDataset("/Data", "MUTAG", transform=NormalizeFeatures())
+    datas = TUDataset("/Data", "REDDIT-BINARY", transform=NormalizeFeatures())[:20]
     datalist = []
     original = []
     for data in datas:
+               
         testdata = Data()
         new_edges, new_weights, new_atrs = RemoveDoubleEdges(data)
         
         testdata.edge_index = new_edges
         testdata.edge_weight = torch.rand(len(testdata.edge_index[0]))
         testdata.edge_attr = testdata.edge_weight.flatten()
-        testdata.num_nodes = len(data.x) 
-        testdata.num_edges = len(data.edge_index[0])
+        testdata.num_nodes = data.num_nodes#len(data.x) 
+        testdata.num_edges = len(testdata.edge_index[0])
         nodefeats = torch.ones([testdata.num_nodes])
         testdata.node_features = nodefeats
         testdata.x = torch.ones([testdata.num_nodes,1])
         original.append(testdata.clone())
         datalist.append(testdata)
     
-    for data in datas: data.num_edges = len(data.x)
+    #for data in datas: data.num_edges = len(data.x)
     target = []
     converted_dataset = []
     
@@ -81,11 +81,11 @@ def LoadTestData():
             blossominput.append((dataitem.edge_index[0][i].item(),
                                  dataitem.edge_index[1][i].item(),
                                  dataitem.edge_weight[i].item()))
-
         target.append(maxWeightMatching(blossominput))
         line_graph = ToLineGraph(dataitem, dataitem.edge_attr, verbose = False)
         converted_dataset.append(line_graph)
-    
+        
+    assert(original[0].num_edges==len(original[0].edge_index[0]))
     return original, converted_dataset, target
     
     testdata = Data()
@@ -109,19 +109,20 @@ def LoadTestData():
 def LoadValExample():
         
     testdata = Data()
-    testdata.edge_index = torch.tensor([[0,1,2,3,3],
-                                        [1,2,3,0,4]], dtype=torch.long)
-    testdata.edge_attr = torch.tensor([0.2,0.8,0.2,0.2,0.8])
-    testdata.num_nodes = 5 
-    testdata.num_edges = 5
+    testdata.edge_index = torch.tensor([[0,0,1,1,2,3],
+                                        [1,2,2,3,3,0]], dtype=torch.long)
+    testdata.edge_attr = torch.tensor([0.20,0.01,0.02,0.21,0.20,0.02])
+    testdata.edge_weight = torch.tensor([0.20,0.01,0.02,0.21,0.20,0.02])
+    testdata.num_nodes = 4 
+    testdata.num_edges = 6
     testdata.node_features = torch.ones([testdata.num_nodes])
     testdata.x = torch.ones([testdata.num_nodes,1])
     
     
     original = testdata.clone()
     line_graph = ToLineGraph(testdata, testdata.edge_attr)
-    
-    target = [-1,2,1,4,3]
+    line_graph.num_nodes = 6
+    target = [1,0,3,2]
     
     return [original], [line_graph], [target]
 
@@ -151,6 +152,7 @@ def LoadData(count=1000, datasetname='MNIST'):
             dataitem.edge_index = new_edges
             dataitem.edge_weight = torch.reshape(new_weights, (len(new_weights), 1))
             dataitem.edge_attr = new_atrs
+            if datasetname=='MNIST': dataitem.edge_weight = torch.reshape(new_atrs, (len(new_atrs), 1))
             mydataset.append(dataitem)
         dataset = mydataset   
         return dataset, converted_dataset[:count], target[:count]
@@ -161,11 +163,12 @@ def LoadData(count=1000, datasetname='MNIST'):
         dataset = GNNBenchmarkDataset('/Data', datasetname, transform=NormalizeFeatures())[:count]
         mydataset = []
         for i, dataitem in enumerate(dataset): 
-            dataitem.num_edges = len(dataitem.pos)
             new_edges, new_weights, new_atrs = RemoveDoubleEdges(dataitem)
+            dataitem.num_edges = len(new_edges[0])
             dataitem.edge_index = new_edges
             dataitem.edge_weight = torch.reshape(new_weights, (len(new_weights), 1))
             dataitem.edge_attr = new_atrs
+            if datasetname=='MNIST': dataitem.edge_weight = torch.reshape(new_atrs, (len(new_atrs), 1))
             mydataset.append(dataitem)
         original = copy.deepcopy(mydataset)
         dataset = mydataset
@@ -204,7 +207,6 @@ def CountDegree(graph):
     deg = [0] * num_nodes
     for i in range(len(edge_index[0])):
         from_node = edge_index[0][i].item()
-        to_node = edge_index[1][i].item()
         deg[from_node]+=1
     return deg
 
@@ -230,7 +232,6 @@ def VisualizeConverted(graph):
         
 def VisualizeOriginal(graph):
     edge_index = graph.edge_index
-    num_nodes = graph.num_nodes
     
     s = "source target w \n"
     with open("data/visualizationOriginalFile.csv", 'w') as file:

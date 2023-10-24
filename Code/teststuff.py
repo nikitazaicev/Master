@@ -1,9 +1,12 @@
 import torch
+import torch_geometric.utils as u
+import GreedyPicker as gp
+import DataLoader as dl
 import torch.nn.functional as F
-from torch_geometric.datasets import SuiteSparseMatrixCollection, GNNBenchmarkDataset, KarateClub
-from torch_geometric.transforms import NormalizeFeatures
+from torch_geometric.datasets import SuiteSparseMatrixCollection, GNNBenchmarkDataset, KarateClub, TUDataset
+from torch_geometric.transforms import NormalizeFeatures, RemoveIsolatedNodes
 from ssgetpy import search, fetch
-from DataLoader import LoadData
+from DataLoader import LoadData, LoadTestData, Data
 import numpy as np
 
 np.random.seed(123)
@@ -15,44 +18,41 @@ print(torch.version.cuda)
 # data = fetch(group = 'HB', nzbounds = (None, 1000))
 # print(data[0].edge_index)
 
-def ReduceGraph(graph, pickedNodeIds):
+def ReduceGraph(original, graph, pickedNodeIds):
+    #print("Removeing picked nodes and their neighbors from line graph", pickedNodeIds)
 
-    ids_toRemove = set()
-    for n in pickedNodeIds:
-        for idx, from_node in enumerate(graph.edge_index[0]):
-            if from_node == n or graph.edge_index[1][idx] == n and idx not in ids_toRemove: 
-                ids_toRemove.add(idx)
-
-        graph.node_features[n] = 0
-        graph.x[n][0] = 0
-
-    edges_to_keep = len(graph.edge_index[0]) - len(ids_toRemove)
-    new_edges = torch.zeros([2,edges_to_keep],dtype=torch.int)
-    new_weights = torch.zeros([edges_to_keep],dtype=torch.float)
-    new_atrs = torch.zeros([edges_to_keep],dtype=torch.float)     
+    subset = [x for x in range(graph.num_nodes) if x not in pickedNodeIds]
+    new_edge_index, _ = u.subgraph(subset, graph.edge_index, relabel_nodes = True)    
+    new_node_feature = graph.node_features[subset]
+    graph.edge_index = new_edge_index
+    graph.node_features = new_node_feature
+    graph.x = torch.reshape(new_node_feature, (-1,1))
+    graph.num_nodes = len(graph.node_features)
+    graph.num_edges = len(graph.edge_index[0])
     
-    i = 0
-    for idx in range(len(graph.edge_index[0])):    
-        if idx in ids_toRemove: continue
-        new_edges[0][i] = graph.edge_index[0][idx]
-        new_edges[1][i] = graph.edge_index[1][idx]
-        new_weights[i] = graph.edge_weight[idx]
-        new_atrs[i] = graph.edge_attr[idx]
-        i+=1
+    #print("Removeing picked edges and their neighbors from original graph", pickedNodeIds)
+    reducedOrig = Data()
+    reducedOrig.num_nodes = original.num_nodes
+    reducedOrig.x = original.x
+    reducedOrig.edge_index = torch.zeros([2,len(original.edge_index[0])-len(pickedNodeIds)])
+    reducedOrig.edge_weight = torch.zeros([len(original.edge_index[0])-len(pickedNodeIds)])
+    reducedOrig.edge_attr = torch.zeros([len(original.edge_index[0])-len(pickedNodeIds)])
+    counter = 0
+    for i in range(len(original.edge_index[0])):
+        if i not in pickedNodeIds:
+            reducedOrig.edge_index[0][counter] = original.edge_index[0][i]
+            reducedOrig.edge_index[1][counter] = original.edge_index[1][i]
+            reducedOrig.edge_weight[counter] = original.edge_weight[i]
+            reducedOrig.edge_attr[counter] = original.edge_attr[i]
+            counter += 1
             
-    graph.edge_index = new_edges
-    graph.edge_weight = new_weights
-    graph.edge_attr = new_atrs               
-    
-    #graph.num_nodes = len(graph.node_features) 
-    graph.num_edges = len(graph.edge_attr) 
-
-    assert(graph.num_nodes==graph.num_nodes)
-    return graph
+    reducedOrig.num_edges = len(reducedOrig.edge_index[0])
+    assert((len(reducedOrig.edge_index[0])==graph.num_nodes))
+    return reducedOrig, graph
 
 def GenerateAdjMatrix(graph, edge_weight):
     adjMat = torch.zeros(graph.num_nodes,graph.num_nodes)
-    print(adjMat.size())
+    #print(adjMat.size())
     for i in range(len(edge_weight)):
         from_node = graph.edge_index[0][i].item()
         to_node = graph.edge_index[1][i].item()
@@ -60,7 +60,11 @@ def GenerateAdjMatrix(graph, edge_weight):
         adjMat[to_node][from_node] = edge_weight[i]
     return adjMat
 
-
-
-
-
+def GenerateAdjList(graph):
+    adjL = [set() for _ in range(graph.num_nodes)]
+    for i in range(len(graph.edge_index[0])):
+        from_node = graph.edge_index[0][i].item()
+        to_node = graph.edge_index[1][i].item()
+        adjL[from_node].add(to_node)
+        adjL[to_node].add(from_node)
+    return adjL

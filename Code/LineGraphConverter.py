@@ -1,5 +1,6 @@
 import torch
-
+import torch_geometric.utils as u
+import networkx as nx
 
 def PrintInfo(_data):
     print(_data)
@@ -7,55 +8,46 @@ def PrintInfo(_data):
     print(f'Number of edges: {_data.num_edges}')
     print(f'edges: {_data.edge_index}')
 
-def ToLineGraph(graph, edge_weight, verbose = False):
-    
-    if verbose: 
-        print("-------- BEFORE --------")
-        PrintInfo(graph)
-    
-    num_edges = 0
-    num_nodes = 0
-    newNodes = {}
-    bucket = {new_list: [] for new_list in range(graph.num_nodes)}
-    newEdges = set()
-    totalEdges = len(edge_weight)
-    for i in range(totalEdges ):
 
+def ToLineGraph(graph, edge_weight, verbose = False):
+    # print("---------------------------------------------------------")    
+    # print(graph.edge_index[0])
+    # print(graph.edge_index[1])
+    # print("---------------------------------------------------------")
+    
+    num_edges = graph.num_edges
+    edgeNodes = [set() for i in range(graph.num_nodes)]
+    
+    for i in range(len(graph.edge_index[0])):
         from_node = graph.edge_index[0][i]
         to_node = graph.edge_index[1][i]
-            
-        newNodes[num_nodes] = (torch.tensor(num_nodes),from_node,to_node)
-
-        bucket[from_node.item()].append(num_nodes)
-        bucket[to_node.item()].append(num_nodes)
-
-        num_nodes = num_nodes+1
+        edgeNodes[from_node].add(i)
+        edgeNodes[to_node].add(i)
     
-    assert(num_nodes==totalEdges)
+    new_fromEdges = [] 
+    new_toEdges = []    
     
-    for i in range(totalEdges):
-
+    for i in range(len(graph.edge_index[0])):
+        from_node = graph.edge_index[0][i]
         to_node = graph.edge_index[1][i]
-        if to_node.item() in bucket:
-            for n in bucket[to_node.item()]:
-                for m in bucket[to_node.item()]:
-                    if n!=m and (m,n) not in newEdges and (n,m) not in newEdges: 
-                        newEdges.add((n,m))
-                        newEdges.add((m,n))
-                        
-    newEdges = sorted(newEdges, key=lambda x : x[0])
-    
-    num_edges = len(newEdges)
-    newEdgesTensor = torch.zeros([2,num_edges], dtype=torch.long)
-    
-    for idx, e in enumerate(newEdges):
-        newEdgesTensor[0][idx] = e[0]
-        newEdgesTensor[1][idx] = e[1]
         
-    new_edgeWeights = torch.ones([num_edges,1])
-    graph.edge_index = newEdgesTensor
+        temp_edges = set()
+        for n in edgeNodes[from_node]:
+            temp_edges.add(n)
+        for n in edgeNodes[to_node]:
+            temp_edges.add(n)
+        for n in temp_edges:
+            if(i==n): continue
+            new_fromEdges.append(i)
+            new_toEdges.append(n)
+    
+    newEdgeIndex = torch.ones([2,len(new_fromEdges)], dtype=torch.int64)
+    newEdgeIndex[0] = torch.tensor(new_fromEdges, dtype=torch.int64)
+    newEdgeIndex[1] = torch.tensor(new_toEdges, dtype=torch.int64)
+    graph.edge_index = newEdgeIndex
     graph.node_features = edge_weight[:]
     
+    new_edgeWeights = torch.ones([len(graph.edge_index[0]),1])
     graph.edge_weight = new_edgeWeights.flatten()
     graph.edge_attr = new_edgeWeights.flatten()
     
@@ -64,12 +56,45 @@ def ToLineGraph(graph, edge_weight, verbose = False):
     graph.num_nodes = len(graph.node_features) 
     graph.num_edges = len(graph.edge_attr) 
     
-    if verbose:
-        print("-------- AFTER --------")
-        PrintInfo(graph)
-
+    
+    # print("---------------------------------------------------------")    
+    # print(graph.num_nodes, num_edges)
+    # print(graph.edge_index[0])
+    # print(graph.edge_index[1])
+    # print("---------------------------------------------------------")
+    
+    assert(len(graph.edge_index[0])==len(graph.edge_weight))
+    assert(graph.num_nodes==len(graph.x)) 
+    
+    assert(graph.num_nodes==num_edges)
+    # exit()
+    
+   
+    
     return graph
+        
 
+def ToLineGraph2(graph, edge_weight, verbose = False):
 
+    G = u.to_networkx(graph,
+                    node_attrs=['x'],
+                    edge_attrs=['edge_attr'],
+                    to_undirected=True)
+    line_graph = nx.line_graph(G, create_using=nx.DiGraph)
+    res_data = u.from_networkx(line_graph)
+    
+    graph.edge_index = res_data.edge_index
+    graph.node_features = edge_weight[:]
+    
+    new_edgeWeights = torch.ones([len(res_data.edge_index[0]),1])
+    graph.edge_weight = new_edgeWeights.flatten()
+    graph.edge_attr = new_edgeWeights.flatten()
+    
+    graph.x = graph.node_features.resize(len(graph.node_features),1)
+    graph.pos = None
+    graph.num_nodes = len(graph.node_features) 
+    graph.num_edges = len(graph.edge_attr) 
+    
+    return graph
         
         
