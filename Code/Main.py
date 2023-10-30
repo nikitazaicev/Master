@@ -31,15 +31,15 @@ print("-------------------\n")
 
 train_test_split = int(0.8*len(original))
 
-original_graphs = original[:train_test_split]#[:1]#[:train_test_split]
-train_data = converted_dataset[:train_test_split]#[:1]#[:train_test_split1]
-y = target[:train_test_split]#[:1]#[:train_test_split]
+original_graphs = original[:train_test_split]
+train_data = converted_dataset[:train_test_split]
+y = target[:train_test_split]
 
 val_original_graphs = original[train_test_split:]#[:1]#[train_test_split:]
 val_data = converted_dataset[train_test_split:]#[:1]#[train_test_split:]
 val_y = target[train_test_split:]#[:1]#[train_test_split:]
 
-#val_original_graphs, val_data, val_y = dl.LoadValExample()
+val_original_graphs, val_data, val_y = dl.LoadValExample()
 
 print("Assigning target classes")
 def AssignTargetClasses(data, original, targetY):
@@ -59,8 +59,8 @@ def AssignTargetClasses(data, original, targetY):
 print("Saveing visualization file")
 AssignTargetClasses(train_data, original_graphs, y)
 AssignTargetClasses(val_data, val_original_graphs, val_y)
-dl.VisualizeConverted(train_data[0])
-dl.VisualizeOriginal(original_graphs[0])
+#dl.VisualizeConverted(val_data[0])
+#dl.VisualizeOriginal(val_original_graphs[0])
 print("------------------- \n")
 
 print("STARING TRAINING")
@@ -70,7 +70,7 @@ torch.manual_seed(123)
 model = MyGCN().to(device)
 
 loader = DataLoader(train_data, batch_size=1, shuffle=True)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)#, weight_decay=0.01)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)#, weight_decay=0.0001)
 classWeights = torch.FloatTensor([0.1,0.9]).to(device)
 criterion = torch.nn.CrossEntropyLoss(weight=classWeights)
 
@@ -177,7 +177,7 @@ for idx in true_edges_idx:
     true_edges.append((to_node, from_node))     
 opt_matches = len(true_edges_idx)
 opt_drops = len(val_original.edge_attr) - len(true_edges_idx)
-print("Optimal amount of matches = ", opt_matches)
+#print("Optimal amount of matches = ", opt_matches)
 
 correct = 0
 correct_picked = 0

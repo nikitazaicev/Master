@@ -35,7 +35,7 @@ def GreedyMatchingLine(graph):
     totalWeight = 0
 
     pickedEdgeIndeces = set()
-    sorted_edges = torch.sort(graph.x.flatten(), descending=True)
+    sorted_edges = torch.sort(graph.x[:, [0]].flatten(), descending=True)    
     
     adj = teststuff.GenerateAdjList(graph)
     count = 0
@@ -44,7 +44,7 @@ def GreedyMatchingLine(graph):
         
         if (original_index not in pickedEdgeIndeces):
             pickedEdgeIndeces.add(original_index)
-            totalWeight += graph.x[original_index].item()
+            totalWeight += graph.x[original_index][0].item()
             pickedEdgeIndeces.update(adj[original_index])
             count += 1
 

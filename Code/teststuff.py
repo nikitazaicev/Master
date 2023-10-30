@@ -26,7 +26,12 @@ def ReduceGraph(original, graph, pickedNodeIds):
     new_node_feature = graph.node_features[subset]
     graph.edge_index = new_edge_index
     graph.node_features = new_node_feature
+    
+    new_degs = graph.x[subset]
+    new_degs = new_degs[:, [1]]
     graph.x = torch.reshape(new_node_feature, (-1,1))
+    graph.x = torch.cat((graph.x, new_degs), dim=-1)
+    
     graph.num_nodes = len(graph.node_features)
     graph.num_edges = len(graph.edge_index[0])
     

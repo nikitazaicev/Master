@@ -51,7 +51,7 @@ def LoadTestData():
      
     #datas = KarateClub(transform=NormalizeFeatures())
     #datas = TUDataset("/Data", "MUTAG", transform=NormalizeFeatures())
-    datas = TUDataset("/Data", "REDDIT-BINARY", transform=NormalizeFeatures())[:20]
+    datas = TUDataset("/Data", "REDDIT-BINARY", transform=NormalizeFeatures())[:10]
     datalist = []
     original = []
     for data in datas:
@@ -87,23 +87,6 @@ def LoadTestData():
         
     assert(original[0].num_edges==len(original[0].edge_index[0]))
     return original, converted_dataset, target
-    
-    testdata = Data()
-    testdata.edge_index = torch.tensor([[0,1,2,3,3,5,6,7,8,8],
-                                        [1,2,3,0,4,6,7,8,5,9]], dtype=torch.long)
-    testdata.edge_attr = torch.tensor([0.8,0.2,0.8,0.2,0.2,0.8,0.2,0.8,0.2,0.2])
-    testdata.num_nodes = 10 
-    testdata.num_edges = 10
-    testdata.node_features = torch.ones([testdata.num_nodes])
-    testdata.x = torch.ones([testdata.num_nodes,1])
-    
-    
-    original = testdata.clone()
-    line_graph = ToLineGraph(testdata, testdata.edge_attr)
-    
-    target = [1,0,3,2,-1,6,5,8,7,-1]
-    
-    return [original], [line_graph], [target]
 
 
 def LoadValExample():
@@ -201,14 +184,7 @@ def LoadData(count=1000, datasetname='MNIST'):
     return original, converted_dataset, target
     
 
-def CountDegree(graph):
-    edge_index = graph.edge_index
-    num_nodes = graph.num_nodes
-    deg = [0] * num_nodes
-    for i in range(len(edge_index[0])):
-        from_node = edge_index[0][i].item()
-        deg[from_node]+=1
-    return deg
+
 
 def VisualizeConverted(graph):
     edge_index = graph.edge_index
