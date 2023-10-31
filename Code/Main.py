@@ -39,7 +39,7 @@ val_original_graphs = original[train_test_split:]#[:1]#[train_test_split:]
 val_data = converted_dataset[train_test_split:]#[:1]#[train_test_split:]
 val_y = target[train_test_split:]#[:1]#[train_test_split:]
 
-val_original_graphs, val_data, val_y = dl.LoadValExample()
+#val_original_graphs, val_data, val_y = dl.LoadValExample()
 
 print("Assigning target classes")
 def AssignTargetClasses(data, original, targetY):
