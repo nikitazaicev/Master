@@ -1,5 +1,13 @@
-from DataLoader import LoadData
-import torch, teststuff
+import torch
+import teststuff
+from torch_geometric.datasets import SuiteSparseMatrixCollection, GNNBenchmarkDataset, KarateClub, TUDataset
+from torch_geometric.transforms import NormalizeFeatures, RemoveIsolatedNodes
+from DataLoader import RemoveDoubleEdges, FromMMformat, ToLineGraph
+import pickle
+from blossom import maxWeightMatching
+import ssgetpy as ss
+from scipy.io import mmread
+
 
 def GreedyMatchingOrig(graph, prevEdgeIndeces=None):
     
@@ -107,3 +115,102 @@ def GreedyScores(pred, graph, original_g, threshold = 0.5):
     excluded_edgeIds.update(picked_edgeIds)                
     excluded_edgeIds.update(picked_neighbors)
     return weightSum, excluded_edgeIds, len(picked_edgeIds)
+
+# DATASET CANDIDATES
+# webbase-2001
+# it-2004
+# GAP-twitter 
+# twitter7
+# GAP-web
+# sk-2005
+
+# gr = 'Newman'
+# dataset = ss.search(group = gr, limit = 100, rowbounds = (10,10000), colbounds = (10,10000) )
+# filenames = []
+# for dataitem in dataset:
+#     filenames.append(dataitem.name)
+
+# matrices = dataset.download(destpath=f'data/{gr}', extract=True)
+# dataset = []
+# converted_dataset = []
+# for filename in filenames:
+#     mmformat = mmread(f'data/{gr}/{filename}/{filename}.mtx').toarray()
+#     original_graph = FromMMformat(mmformat)
+#     #copy_graph = FromMMformat(mmformat)
+#     print("START...")
+#     #print("LINE GRAPH PROCCESSING...")
+#     #print(copy_graph.num_nodes)
+#     #if copy_graph.num_nodes == 0 or copy_graph.num_nodes == 487: continue
+#     #edgesbefore = copy_graph.num_edges
+#     #line_graph = ToLineGraph(copy_graph, copy_graph.edge_attr, verbose = False)
+#     #print(copy_graph.num_edges)
+#     #assert(copy_graph.num_nodes==edgesbefore)
+#     #assert(copy_graph.num_edges<=(0.5*(edgesbefore)*(edgesbefore-1))+1)
+    
+#     print("EDGES: ", len(original_graph.edge_index[0]))
+#     print("EDGE ATTRS : ", original_graph.edge_attr)
+#     if original_graph.edge_weight is None: original_graph.edge_weight = original_graph.edge_attr
+#     print("EDGE WEIGHTS : ", original_graph.edge_weight)
+    
+    
+#     totalWeightGreed, pickedEdgeIndeces = GreedyMatchingOrig(original_graph)
+#     blossominput = []
+#     target = []
+#     for i in range(len(original_graph.edge_index[0])):
+#         blossominput.append((original_graph.edge_index[0][i].item(),
+#                               original_graph.edge_index[1][i].item(),
+#                               original_graph.edge_attr[i].item()))
+    
+#     match=maxWeightMatching(blossominput)
+#     target.append(match)
+    
+#     val_y = target
+#     val_y_item = torch.LongTensor(val_y[0])
+#     classes = []
+#     for j in range(len(original_graph.edge_index[0])):
+#         from_node = original_graph.edge_index[0][j].item()
+#         to_node = original_graph.edge_index[1][j].item() 
+#         if val_y_item[from_node] == to_node:
+#             classes.append(1)
+#         else:
+#             classes.append(0)
+#     val_y_item = torch.FloatTensor(classes)
+#     true_edges_idx = (val_y_item == 1).nonzero(as_tuple=True)[0]
+#     totalWeightOpt = 0
+#     for idx in true_edges_idx:
+#         from_node = original_graph.edge_index[0][idx].item()
+#         to_node = original_graph.edge_index[1][idx].item()
+#         totalWeightOpt += original_graph.edge_attr[idx]
+    
+#     graphs = []
+#     print("----------------------------------")
+#     print("GREEDY WEIGHT = ", totalWeightGreed)
+#     print("OPTIMAL WEIGHT = ", totalWeightOpt)
+#     print("DIFF = ", totalWeightGreed/totalWeightOpt)
+    
+
+#     if (totalWeightGreed/totalWeightOpt).item() < 0.8:
+#         try:
+#             with open('data/OptGreedDiffDataPaths.pkl', 'rb') as file:
+#                 matchCriteriaData = pickle.load(file)
+#         except Exception: matchCriteriaData = dict()
+            
+#         print("FOUND SUITABLE DATA!!!")
+#         print(original_graph)
+#         matchCriteriaData[f'data/{gr}/{filename}/{filename}.mtx'] = original_graph
+#         with open("data/OptGreedDiffDataPaths.pkl", 'wb') as file:
+#             pickle.dump(matchCriteriaData, file)
+    
+    
+#     print("DONE")
+#     #converted_dataset.append(line_graph)
+#     #dataset.append((original_graph,f'data/{gr}/{filename}/{filename}.mtx'))
+
+    
+# try:
+#     with open('data/OptGreedDiffDataPaths.pkl', 'rb') as file:
+#         matchCriteriaData = pickle.load(file)    
+# except Exception: matchCriteriaData = dict()
+    
+# print("TOTAL DATA FOUND = ", len(matchCriteriaData))
+# print("----------------------------------")

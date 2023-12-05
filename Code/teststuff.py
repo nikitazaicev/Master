@@ -1,6 +1,7 @@
 import torch
 import torch_geometric.utils as u
 import GreedyPicker as gp
+from blossom import maxWeightMatching
 import DataLoader as dl
 import torch.nn.functional as F
 from torch_geometric.datasets import SuiteSparseMatrixCollection, GNNBenchmarkDataset, KarateClub, TUDataset
@@ -28,7 +29,7 @@ def ReduceGraph(original, graph, pickedNodeIds):
     graph.node_features = new_node_feature
     
     new_degs = graph.x[subset]
-    new_degs = new_degs[:, [1]]
+    new_degs = new_degs[:, [1,2,3,4]]
     graph.x = torch.reshape(new_node_feature, (-1,1))
     graph.x = torch.cat((graph.x, new_degs), dim=-1)
     
@@ -52,12 +53,13 @@ def ReduceGraph(original, graph, pickedNodeIds):
             counter += 1
             
     reducedOrig.num_edges = len(reducedOrig.edge_index[0])
+    print(len(reducedOrig.edge_index[0]), graph.num_nodes)
     assert((len(reducedOrig.edge_index[0])==graph.num_nodes))
     return reducedOrig, graph
 
-def GenerateAdjMatrix(graph, edge_weight):
+def GenerateAdjMatrix(graph):
     adjMat = torch.zeros(graph.num_nodes,graph.num_nodes)
-    #print(adjMat.size())
+    edge_weight = graph.edge_weight
     for i in range(len(edge_weight)):
         from_node = graph.edge_index[0][i].item()
         to_node = graph.edge_index[1][i].item()
@@ -73,3 +75,4 @@ def GenerateAdjList(graph):
         adjL[from_node].add(to_node)
         adjL[to_node].add(from_node)
     return adjL
+

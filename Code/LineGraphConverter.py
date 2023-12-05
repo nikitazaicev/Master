@@ -1,12 +1,41 @@
 import torch
 import torch_geometric.utils as u
-import networkx as nx
+import torch.nn.functional as F
 
 def PrintInfo(_data):
     print(_data)
     print(f'Number of nodes: {_data.num_nodes}')
     print(f'Number of edges: {_data.num_edges}')
     print(f'edges: {_data.edge_index}')
+
+
+def GenerateAdjList(graph):
+    adjL = [set() for _ in range(graph.num_nodes)]
+    for i in range(len(graph.edge_index[0])):
+        from_node = graph.edge_index[0][i].item()
+        to_node = graph.edge_index[1][i].item()
+        adjL[from_node].add(to_node)
+        adjL[to_node].add(from_node)
+    return adjL
+
+def CountExtraFeatures(graph):
+    num_nodes = graph.num_nodes
+    rels = [0.0] * num_nodes
+    diffs = [0.0] * num_nodes
+    maxs = [0.0] * num_nodes
+    adj = GenerateAdjList(graph)
+    for i, neighbors in enumerate(adj):
+        w = graph.node_features[i]
+        neighborW = 0
+        for n in neighbors:
+            neighborW = neighborW + graph.node_features[n]
+            diffs[i] = diffs[i] + (w - graph.node_features[n])
+            maxs[i] = maxs[i] + graph.node_features[n]
+        rels[i] = w/neighborW
+    rels = torch.Tensor(rels).unsqueeze(1)
+    diffs = torch.Tensor(diffs).unsqueeze(1)
+    maxs = torch.Tensor(maxs).unsqueeze(1)
+    return torch.cat((rels, diffs, maxs), dim=-1)
 
 def CountDegree(graph):
     edge_index = graph.edge_index
@@ -16,7 +45,7 @@ def CountDegree(graph):
         from_node = edge_index[0][i].item()
         #to_node = edge_index[1][i].item()
         deg[from_node]+=1
-    return deg
+    return torch.Tensor(deg).unsqueeze(1)
 
 def ToLineGraph(graph, edge_weight, verbose = False):
 
@@ -24,8 +53,8 @@ def ToLineGraph(graph, edge_weight, verbose = False):
     edgeNodes = [set() for i in range(graph.num_nodes)]
     
     for i in range(len(graph.edge_index[0])):
-        from_node = graph.edge_index[0][i]
-        to_node = graph.edge_index[1][i]
+        from_node = graph.edge_index[0][i].item()
+        to_node = graph.edge_index[1][i].item()
         edgeNodes[from_node].add(i)
         edgeNodes[to_node].add(i)
     
@@ -39,9 +68,12 @@ def ToLineGraph(graph, edge_weight, verbose = False):
         temp_edges = set()
         for n in edgeNodes[from_node]:
             temp_edges.add(n)
+            if(i==n): continue
+            new_fromEdges.append(i)
+            new_toEdges.append(n)
+        
         for n in edgeNodes[to_node]:
             temp_edges.add(n)
-        for n in temp_edges:
             if(i==n): continue
             new_fromEdges.append(i)
             new_toEdges.append(n)
@@ -62,10 +94,12 @@ def ToLineGraph(graph, edge_weight, verbose = False):
     graph.num_nodes = len(graph.node_features) 
     graph.num_edges = len(graph.edge_attr)
     
-    degs = torch.Tensor(CountDegree(graph))
-    degs = degs.unsqueeze(1)
+    degs = CountDegree(graph)
     graph.x = torch.cat((graph.x, degs), dim=-1)
+    feats = CountExtraFeatures(graph)
+    graph.x = torch.cat((graph.x, feats), dim=-1)
     
+    assert(len(graph.x[0])==5)
     assert(len(graph.edge_index[0])==len(graph.edge_weight))
     assert(graph.num_nodes==len(graph.x)) 
     

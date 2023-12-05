@@ -1,0 +1,18 @@
+OTHER
+Line graph convert takes longest time
+
+
+TESTING
+Handmade simple validation examples + validation on MNIST / HB
+Testing with MNIST dataset
+
+
+RESULTS
+1. 50-60% of OPT
+2 After adding features:
+  deg / weight diff / max / realative diff ->
+  -> 75% / 85% / 90% / 91%
+
+
+EXPLORING
+most graphs from suitsparse have opt-greed-diff 0.8-0.95

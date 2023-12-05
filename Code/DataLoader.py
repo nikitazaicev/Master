@@ -7,6 +7,8 @@ from LineGraphConverter import ToLineGraph
 import pickle
 import numpy as np
 import copy
+import ssgetpy as ss
+from scipy.io import mmread
 
 np.random.seed(123)
 torch.manual_seed(123)
@@ -89,28 +91,6 @@ def LoadTestData():
     return original, converted_dataset, target
 
 
-def LoadValExample():
-        
-    testdata = Data()
-    testdata.edge_index = torch.tensor([[0,0,1,1,2,3],
-                                        [1,2,2,3,3,0]], dtype=torch.long)
-    testdata.edge_attr = torch.tensor([0.20,0.01,0.02,0.21,0.20,0.02])
-    testdata.edge_weight = torch.tensor([0.20,0.01,0.02,0.21,0.20,0.02])
-    testdata.num_nodes = 4 
-    testdata.num_edges = 6
-    testdata.node_features = torch.ones([testdata.num_nodes])
-    testdata.x = torch.ones([testdata.num_nodes,1])
-    
-    
-    original = testdata.clone()
-    line_graph = ToLineGraph(testdata, testdata.edge_attr)
-    line_graph.num_nodes = 6
-    target = [1,0,3,2]
-    
-    return [original], [line_graph], [target]
-
-
-
 def LoadData(count=1000, datasetname='MNIST'):
     print("LOADING DATASETS")
     print("-------------------")
@@ -127,7 +107,7 @@ def LoadData(count=1000, datasetname='MNIST'):
             print(file_name, " loaded")
             converted_dataset = pickle.load(file)
         
-        dataset = GNNBenchmarkDataset('/Data', datasetname, transform=NormalizeFeatures())[:count]
+        dataset = GNNBenchmarkDataset('data', datasetname, transform=NormalizeFeatures())[:count]
         mydataset = []
         for i, dataitem in enumerate(dataset): 
             dataitem.num_edges = len(dataitem.pos)
@@ -143,7 +123,7 @@ def LoadData(count=1000, datasetname='MNIST'):
     except Exception:
         print(file_name, " not found creating new datafile")
         print("Downloading initial dataset")
-        dataset = GNNBenchmarkDataset('/Data', datasetname, transform=NormalizeFeatures())[:count]
+        dataset = GNNBenchmarkDataset('data', datasetname, transform=NormalizeFeatures())[:count]
         mydataset = []
         for i, dataitem in enumerate(dataset): 
             new_edges, new_weights, new_atrs = RemoveDoubleEdges(dataitem)
@@ -181,10 +161,7 @@ def LoadData(count=1000, datasetname='MNIST'):
             pickle.dump(converted_dataset, file)
             print(f'Object successfully saved to "{file_name}"')
     
-    return original, converted_dataset, target
-    
-
-
+    return original, converted_dataset, target    
 
 def VisualizeConverted(graph):
     edge_index = graph.edge_index
@@ -217,3 +194,91 @@ def VisualizeOriginal(graph):
             w = graph.edge_attr[i].item()
             s += f'{from_node} {to_node} {w}\n'
         file.writelines(s)
+        
+def FromMMformat(graph):
+    original_graph = Data()
+    from_nodes, to_nodes, new_weights = [],[],[]
+    minW, j, count = 0, 0, 0
+    nodeMap = dict()
+    
+    for row in range(len(graph)-1):    
+        for col in range(j):
+            w = graph[row][col]
+            if w == 0: continue
+            if w < minW: minW = w
+            
+            if row in nodeMap: 
+                from_nodes.append(nodeMap[row])
+            else: 
+                from_nodes.append(count)
+                nodeMap[row] = count
+                count+=1
+            
+            if col in nodeMap: 
+                to_nodes.append(nodeMap[col])
+            else: 
+                to_nodes.append(count)
+                nodeMap[col] = count
+                count+=1
+                
+            new_weights.append(graph[row][col])            
+        if j < len(graph[0]): j += 1    
+    
+    if minW >= 0: minW = 0 
+    assert(len(from_nodes)==len(to_nodes))
+    original_graph.edge_index = torch.Tensor([from_nodes,to_nodes]).type(torch.int64)
+    original_graph.edge_weight = torch.add(torch.Tensor(new_weights), -1*minW)
+    original_graph.edge_attr = original_graph.edge_weight
+    original_graph.num_nodes = count
+    original_graph.num_edges = len(from_nodes)
+    return original_graph
+
+
+
+def LoadValGoodCase(filenames = []):
+        
+    dataset = []
+    converted_dataset = []
+    target = []
+    for filename in filenames:
+        mmformat = mmread(filename).toarray()
+        original_graph = FromMMformat(mmformat)
+        line_graph = ToLineGraph(FromMMformat(mmformat), original_graph.edge_attr, verbose = False)
+        converted_dataset.append(line_graph)
+        dataset.append(original_graph)
+    
+        blossominput = []
+        for i in range(len(original_graph.edge_index[0])):
+            blossominput.append((original_graph.edge_index[0][i].item(),
+                                 original_graph.edge_index[1][i].item(),
+                                 original_graph.edge_attr[i].item()))
+        target.append(maxWeightMatching(blossominput))
+        assert((len(original_graph.edge_index[0])==line_graph.num_nodes)) 
+    return dataset, converted_dataset, target
+
+def LoadValExample():
+        
+    dataset = ss.search(group = 'HB')
+    filenames = [] 
+    for dataitem in dataset:
+        filenames.append(dataitem.name)
+
+    dataset.download(destpath="data/HB",extract=True)
+    dataset = []
+    converted_dataset = []
+    target = []
+    for filename in filenames:
+        mmformat = mmread(f'data/HB/{filename}/{filename}.mtx').toarray()
+        original_graph = FromMMformat(mmformat)
+        line_graph = ToLineGraph(FromMMformat(mmformat), original_graph.edge_attr, verbose = False)
+        converted_dataset.append(line_graph)
+        dataset.append(original_graph)
+    
+        blossominput = []
+        for i in range(len(original_graph.edge_index[0])):
+            blossominput.append((original_graph.edge_index[0][i].item(),
+                                 original_graph.edge_index[1][i].item(),
+                                 original_graph.edge_attr[i].item()))
+        target.append(maxWeightMatching(blossominput))
+        assert((len(original_graph.edge_index[0])==line_graph.num_nodes)) 
+    return dataset, converted_dataset, target
