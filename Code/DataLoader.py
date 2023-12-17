@@ -3,12 +3,13 @@ from torch_geometric.transforms import NormalizeFeatures
 from torch_geometric.datasets import GNNBenchmarkDataset, KarateClub, TUDataset
 from torch_geometric.data import Data
 from blossom import maxWeightMatching
-from LineGraphConverter import ToLineGraph
+import LineGraphConverter as lgc
 import pickle
 import numpy as np
 import copy
 import ssgetpy as ss
 from scipy.io import mmread
+import torch_geometric.transforms as T
 
 np.random.seed(123)
 torch.manual_seed(123)
@@ -84,7 +85,7 @@ def LoadTestData():
                                  dataitem.edge_index[1][i].item(),
                                  dataitem.edge_weight[i].item()))
         target.append(maxWeightMatching(blossominput))
-        line_graph = ToLineGraph(dataitem, dataitem.edge_attr, verbose = False)
+        line_graph = lgc.ToLineGraph(dataitem, dataitem.edge_attr, verbose = False)
         converted_dataset.append(line_graph)
         
     assert(original[0].num_edges==len(original[0].edge_index[0]))
@@ -107,14 +108,18 @@ def LoadData(count=1000, datasetname='MNIST'):
             print(file_name, " loaded")
             converted_dataset = pickle.load(file)
         
-        dataset = GNNBenchmarkDataset('data', datasetname, transform=NormalizeFeatures())[:count]
+        transform = T.Compose([NormalizeFeatures()])
+        dataset = GNNBenchmarkDataset('data', datasetname, transform=transform)[:count]
+        
         mydataset = []
         for i, dataitem in enumerate(dataset): 
-            dataitem.num_edges = len(dataitem.pos)
             new_edges, new_weights, new_atrs = RemoveDoubleEdges(dataitem)
             dataitem.edge_index = new_edges
+            dataitem.num_edges = len(new_weights)
             dataitem.edge_weight = torch.reshape(new_weights, (len(new_weights), 1))
             dataitem.edge_attr = new_atrs
+            dataitem.x = lgc.AugmentNodeFeatures(dataitem)
+            
             if datasetname=='MNIST': dataitem.edge_weight = torch.reshape(new_atrs, (len(new_atrs), 1))
             mydataset.append(dataitem)
         dataset = mydataset   
@@ -123,7 +128,8 @@ def LoadData(count=1000, datasetname='MNIST'):
     except Exception:
         print(file_name, " not found creating new datafile")
         print("Downloading initial dataset")
-        dataset = GNNBenchmarkDataset('data', datasetname, transform=NormalizeFeatures())[:count]
+        transform = T.Compose([NormalizeFeatures()])
+        dataset = GNNBenchmarkDataset('data', datasetname, transform=transform)[:count]
         mydataset = []
         for i, dataitem in enumerate(dataset): 
             new_edges, new_weights, new_atrs = RemoveDoubleEdges(dataitem)
@@ -131,6 +137,7 @@ def LoadData(count=1000, datasetname='MNIST'):
             dataitem.edge_index = new_edges
             dataitem.edge_weight = torch.reshape(new_weights, (len(new_weights), 1))
             dataitem.edge_attr = new_atrs
+            dataitem.x = lgc.AugmentNodeFeatures(dataitem)
             if datasetname=='MNIST': dataitem.edge_weight = torch.reshape(new_atrs, (len(new_atrs), 1))
             mydataset.append(dataitem)
         original = copy.deepcopy(mydataset)
@@ -149,7 +156,7 @@ def LoadData(count=1000, datasetname='MNIST'):
                                      dataitem.edge_attr[i].item()))
 
             target.append(maxWeightMatching(blossominput))
-            line_graph = ToLineGraph(dataitem, dataitem.edge_attr, verbose = False)
+            line_graph = lgc.ToLineGraph(dataitem, dataitem.edge_attr, verbose = False)
             converted_dataset.append(line_graph)
         
         with open(file_name, 'wb') as file:
@@ -243,7 +250,7 @@ def LoadValGoodCase(filenames = []):
     for filename in filenames:
         mmformat = mmread(filename).toarray()
         original_graph = FromMMformat(mmformat)
-        line_graph = ToLineGraph(FromMMformat(mmformat), original_graph.edge_attr, verbose = False)
+        line_graph = lgc.ToLineGraph(FromMMformat(mmformat), original_graph.edge_attr, verbose = False)
         converted_dataset.append(line_graph)
         dataset.append(original_graph)
     
@@ -270,7 +277,7 @@ def LoadValExample():
     for filename in filenames:
         mmformat = mmread(f'data/HB/{filename}/{filename}.mtx').toarray()
         original_graph = FromMMformat(mmformat)
-        line_graph = ToLineGraph(FromMMformat(mmformat), original_graph.edge_attr, verbose = False)
+        line_graph = lgc.ToLineGraph(FromMMformat(mmformat), original_graph.edge_attr, verbose = False)
         converted_dataset.append(line_graph)
         dataset.append(original_graph)
     

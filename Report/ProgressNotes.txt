@@ -6,13 +6,24 @@ TESTING
 Handmade simple validation examples + validation on MNIST / HB
 Testing with MNIST dataset
 
+IMPROVEMENTS
 
-RESULTS
+1. bare bones
+2. class weights -> all or nothing
+3. optimizer learning rate, network depth and width, 
+4. skip connections
+5. extra features
+
+RESULTS ON ONE DATAEXAMPLE
 1. 50-60% of OPT
 2 After adding features:
-  deg / weight diff / max / realative diff ->
+  deg / weight diff / max / relative diff ->
   -> 75% / 85% / 90% / 91%
+  one by one
+  -> 15% / 15% / 10% / 15%
 
 
 EXPLORING
 most graphs from suitsparse have opt-greed-diff 0.8-0.95
+
+managed to beat some of the suitesparse examples that were found, with line graph

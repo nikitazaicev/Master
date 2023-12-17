@@ -47,6 +47,21 @@ def CountDegree(graph):
         deg[from_node]+=1
     return torch.Tensor(deg).unsqueeze(1)
 
+def AugmentNodeFeatures(graph, isLIneGraph=False):
+    
+    if isLIneGraph:
+        graph.x = graph.node_features.resize(len(graph.node_features),1)
+    else:
+        graph.x = torch.ones([graph.num_nodes,1])
+        graph.node_features = graph.x
+    
+    degs = CountDegree(graph)
+    graph.x = torch.cat((graph.x, degs), dim=-1)
+    feats = CountExtraFeatures(graph)
+    graph.x = torch.cat((graph.x, feats), dim=-1)
+    if isLIneGraph: assert(graph.x[0][0]==1)
+    return graph.x
+
 def ToLineGraph(graph, edge_weight, verbose = False):
 
     num_edges = graph.num_edges
@@ -88,18 +103,13 @@ def ToLineGraph(graph, edge_weight, verbose = False):
     graph.edge_weight = new_edgeWeights.flatten()
     graph.edge_attr = new_edgeWeights.flatten()
     
-    
-    graph.x = graph.node_features.resize(len(graph.node_features),1)
     graph.pos = None
     graph.num_nodes = len(graph.node_features) 
     graph.num_edges = len(graph.edge_attr)
     
-    degs = CountDegree(graph)
-    graph.x = torch.cat((graph.x, degs), dim=-1)
-    feats = CountExtraFeatures(graph)
-    graph.x = torch.cat((graph.x, feats), dim=-1)
+    AugmentNodeFeatures(graph)
     
-    assert(len(graph.x[0])==5)
+    #assert(len(graph.x[0])==1)
     assert(len(graph.edge_index[0])==len(graph.edge_weight))
     assert(graph.num_nodes==len(graph.x)) 
     

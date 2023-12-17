@@ -53,9 +53,27 @@ def ReduceGraph(original, graph, pickedNodeIds):
             counter += 1
             
     reducedOrig.num_edges = len(reducedOrig.edge_index[0])
-    print(len(reducedOrig.edge_index[0]), graph.num_nodes)
     assert((len(reducedOrig.edge_index[0])==graph.num_nodes))
     return reducedOrig, graph
+
+def ReduceGraphOriginal(originalG, pickedNodeIds):  
+    reducedOrig = Data()
+    subset = [x for x in range(originalG.num_nodes) if x not in pickedNodeIds]
+    new_edge_index, edge_weight = u.subgraph(subset, originalG.edge_index, originalG.edge_weight, relabel_nodes = True)    
+    new_node_feature = originalG.node_features[subset]
+    reducedOrig.edge_index = new_edge_index
+    reducedOrig.edge_weight = edge_weight 
+    reducedOrig.node_features = new_node_feature
+    
+    reducedOrig.x = originalG.x[subset]
+    
+    reducedOrig.num_nodes = len(reducedOrig.x)
+    reducedOrig.num_edges = len(reducedOrig.edge_index[0])
+
+    assert(len(reducedOrig.edge_weight)==len(reducedOrig.edge_index[0]))
+    assert((len(reducedOrig.edge_index[0])==reducedOrig.num_edges))
+    assert((len(reducedOrig.x)==reducedOrig.num_nodes))
+    return reducedOrig
 
 def GenerateAdjMatrix(graph):
     adjMat = torch.zeros(graph.num_nodes,graph.num_nodes)

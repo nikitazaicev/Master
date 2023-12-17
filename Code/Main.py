@@ -4,15 +4,18 @@ from torch_geometric.loader import DataLoader
 import GreedyPicker as gp
 import DataLoader as dl
 import teststuff
-from MyGCN import MyGCN
+from MyGCN import MyGCN, EdgeClassifier, MyGCNEdge
 import pickle
-
+import torch_geometric.transforms as T
+from torch_geometric.datasets import Planetoid
+import random
+import math
 
 torch.manual_seed(123)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Current CUDA version: ", torch.version.cuda, "\n")
 
-original, converted_dataset, target = dl.LoadData(1000)
+original, converted_dataset, target = dl.LoadData(10)
 
 #original, converted_dataset, target = dl.LoadTestData()
 
@@ -31,14 +34,15 @@ assert((len(converted_dataset[0].edge_weight)==len(converted_dataset[0].edge_ind
 print("-------------------\n")
 
 train_test_split = int(0.8*len(original))
+random.seed(123)
 
 original_graphs = original[:train_test_split]
 train_data = converted_dataset[:train_test_split]
 y = target[:train_test_split]
 
-val_original_graphs = original[train_test_split:]#[:1]#[train_test_split:]
-val_data = converted_dataset[train_test_split:]#[:1]#[train_test_split:]
-val_y = target[train_test_split:]#[:1]#[train_test_split:]
+val_original_graphs = original[train_test_split:]
+val_data = converted_dataset[train_test_split:]
+val_y = target[train_test_split:]
 
 #val_original_graphs, val_data, val_y = dl.LoadValExample()
 
@@ -57,6 +61,7 @@ def AssignTargetClasses(data, original, targetY):
     
     for i, graph in enumerate(data):        
         graph.y = torch.LongTensor(classes[i]).to(device)
+        original[i].y = torch.LongTensor(classes[i]).to(device)
     
 print("Saveing visualization file")
 AssignTargetClasses(train_data, original_graphs, y)
@@ -69,40 +74,50 @@ print("STARING TRAINING")
 print("-------------------")
 
 torch.manual_seed(123)
-model = MyGCN().to(device)
 
-loader = DataLoader(train_data, batch_size=1, shuffle=True)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)#, weight_decay=0.0001)
+model = MyGCNEdge().to(device)
+#model = MyGCN().to(device)
+
+classifier = EdgeClassifier().to(device)
+
+#loader = DataLoader(train_data, batch_size=1, shuffle=True)
+loader = DataLoader(original_graphs, batch_size=1, shuffle=True)
+
+optimizer = torch.optim.Adam(list(model.parameters()) + list(classifier.parameters()), lr=0.001)#, weight_decay=0.0001)
 classWeights = torch.FloatTensor([0.1,0.9]).to(device)
 criterion = torch.nn.CrossEntropyLoss(weight=classWeights)
 
-epochs = 10
-torch.manual_seed(123)
-model.train()
-for epoch in range(epochs):
-    
-    for graphs in loader:
+EPOCHS = 100
+for epoch in range(EPOCHS):
+    torch.manual_seed(123)
+    model.train()
+    classifier.train()
+    for graph in loader:
         
         optimizer.zero_grad()
-        graphs = graphs.to(device)
-        out = model(graphs).to(device)
-        y = graphs.y.to(device)
-        loss = F.nll_loss(out, y, weight=classWeights) #criterion(out, y) # 
+        graph = graph.to(device)
+
+        out = model(graph).to(device)
+    
+        x_src, x_dst = out[graph.edge_index[0]], out[graph.edge_index[1]]
+        edgeEmbed = torch.cat([x_src, x_dst], dim=-1)
+        out = classifier(edgeEmbed).to(device)           
+
+        loss = F.nll_loss(out, graph.y.to(device), weight=classWeights)
         loss.backward()
         optimizer.step()
         
     if (epoch + 1) % 10 == 0:
-        print(f'epoch{epoch+1}/{epochs}, loss={loss.item():.4f}')
-
-# print(model.lin.weight.size())
-# print(model.lin.weight)
+        print(f'epoch{epoch+1}/{EPOCHS}, loss={loss.item():.4f}')
 
 print("Successfully finished training")    
 print("------------------- \n") 
 
+
 print("STARING EVALUATION")  
 print("-------------------")
 model.eval()
+classifier.eval()
 try:
     with open('data/OptGreedDiffDataPaths.pkl', 'rb') as file:
         matchCriteriaData = pickle.load(file)
@@ -112,19 +127,27 @@ for key in matchCriteriaData:
     filepaths.append(key)
     print("ADDING DATASET: ", key)
     
-for filepath in filepaths:
+filepaths = ["data/Gset/G21/G21.mtx"]
+
+#for graphId, filepath in enumerate(filepaths):
+#    graphId = 0
+#    val_original_graphs, val_data, val_y = dl.LoadValGoodCase([filepath])
+for graphId, filepath in enumerate(val_original_graphs):
     
-    if 'Gset' in filepath:
-        print("SKIPPING: ", filepath) 
-        continue
     print("-------------------")
     print("EVALUATING: ", filepath)    
 
-    val_original_graphs, val_data, val_y = dl.LoadValGoodCase([filepath])
-    val_original = val_original_graphs[0].to(device)
-    val_original_copy = val_original_graphs[0].to(device)
-    val_graph = val_data[0].to(device)
-    val_y_item = torch.LongTensor(val_y[0]).to(device)
+
+    val_original = val_original_graphs[graphId].to(device)
+    val_original_copy = val_original_graphs[graphId].to(device)
+    val_graph = val_data[graphId].to(device)
+    val_y_item = torch.LongTensor(val_y[graphId]).to(device)
+    
+    print("TOTAL NODES ORIGINAL = ", val_original.num_nodes)
+    print("TOTAL EDGES ORIGINAL = ", val_original.num_edges)
+    
+    print("TOTAL NODES = ", val_graph.num_nodes)
+    print("TOTAL EDGES = ", val_graph.num_edges)
     
     classes = []
     for j in range(val_graph.num_nodes):
@@ -143,17 +166,30 @@ for filepath in filepaths:
     picked_nodes = set()
     weightSum = 0
     step = 1
+    graph = val_original_copy
     while (val_original.num_nodes-2*len(picked_edges)) > 2:
         print("Step - ", step)
-       
-        pred = torch.exp(model(val_graph.to(device)))
+        
+        
+        out = model(graph.to(device))
+        x_src, x_dst = out[graph.edge_index[0]], out[graph.edge_index[1]]
+        edgeEmbed = torch.cat([x_src, x_dst], dim=-1)
+        out = classifier(edgeEmbed).to(device)
+        pred = torch.exp(out)
+        
+        #pred = torch.exp(model(val_graph.to(device)))
+        
         scores = []
         for p in pred:
             if p[0] > p[1]: scores.append(0.0)
             else: scores.append(p[1])      
         scores = torch.FloatTensor(scores)
+
+        #weight, originalEdgeIds, pickedEdges = gp.GreedyScores(scores, val_graph, val_original_copy)
+        weight, originalEdgeIds, picked_nodes = gp.GreedyScoresOriginal(scores, graph)
+
+        pickedEdges = len(originalEdgeIds)
         
-        weight, originalEdgeIds, pickedEdges = gp.GreedyScores(scores, val_graph, val_original_copy)
         weightSum += weight
         weight = 0
         print("Total original edges picked = ", pickedEdges)
@@ -162,15 +198,17 @@ for filepath in filepaths:
         if (pickedEdges == 0) : break
     
         print("Removing picked nodes...")
-        print("Total nodes in converted graph = ", len(val_graph.x))
-        val_original_copy, val_graph = teststuff.ReduceGraph(val_original_copy, val_graph, originalEdgeIds)
-        print("Total nodes in converted graph remains = ", len(val_graph.x))
-        if val_graph.num_nodes <= 0: break    
+        print("Total nodes in converted graph = ", len(graph.x))
+        #val_original_copy, val_graph = teststuff.ReduceGraph(val_original_copy, val_graph, originalEdgeIds)
+        graph = teststuff.ReduceGraphOriginal(graph, picked_nodes)
+        print("Total nodes in converted graph remains = ", len(graph.x))
+        if graph.num_nodes <= 0: break    
         step += 1
     
     
     print("Finishing remaining matching with normal greedy.")
-    weightRes, pickedEdgeIndeces = gp.GreedyMatchingLine(val_graph)
+    #weightRes, pickedEdgeIndeces = gp.GreedyMatchingLine(val_graph)
+    weightRes, pickedEdgeIndeces = gp.GreedyMatchingOrig(graph)
     weightSum += weightRes
     print("Total original edges picked = ", len(pickedEdgeIndeces))
     print("Current weight sum = ", weightSum)
@@ -245,7 +283,10 @@ for filepath in filepaths:
     # acc = int(correct) / int(len(val_y_item))
     # print(f'Total ACCURACY: {acc:.2f}')
     # print("------------------- \n") 
-    
+
+    weightSum = weightSum.item()
+    weightMax = weightMax.item()
+
     print(f'Total WEIGHT out of optimal: {weightSum:.2f}/{weightMax:.2f} ({100*(weightSum/weightMax):.1f}%) ')
     print(f'Total WEIGHT out of standard greedy: {weightSum:.2f}/{weightGreedy:.2f} ({100*(weightSum/weightGreedy):.1f}%)')
     print(f'Total WEIGHT out of random matching: {weightSum:.2f}/{weightRandom:.2f} ({100*(weightSum/weightRandom):.1f}%)')

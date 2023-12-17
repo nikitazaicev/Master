@@ -2,7 +2,7 @@ import torch
 import teststuff
 from torch_geometric.datasets import SuiteSparseMatrixCollection, GNNBenchmarkDataset, KarateClub, TUDataset
 from torch_geometric.transforms import NormalizeFeatures, RemoveIsolatedNodes
-from DataLoader import RemoveDoubleEdges, FromMMformat, ToLineGraph
+from DataLoader import RemoveDoubleEdges, FromMMformat
 import pickle
 from blossom import maxWeightMatching
 import ssgetpy as ss
@@ -115,6 +115,28 @@ def GreedyScores(pred, graph, original_g, threshold = 0.5):
     excluded_edgeIds.update(picked_edgeIds)                
     excluded_edgeIds.update(picked_neighbors)
     return weightSum, excluded_edgeIds, len(picked_edgeIds)
+
+def GreedyScoresOriginal(pred, original_g, threshold = 0.5):
+    picked_nodes = set()
+    picked_edgeIds = set()
+    weightSum = 0
+    sorted_pred = torch.sort(pred, descending=True)
+
+    picked_edges = set()
+    for i, sorted_i in enumerate(sorted_pred.indices):
+        from_node = original_g.edge_index[0][sorted_i].item()
+        to_node = original_g.edge_index[1][sorted_i].item()
+        
+        if (sorted_pred.values[i] >= threshold 
+            and (from_node not in picked_nodes 
+            and to_node not in picked_nodes)):
+            weightSum += original_g.edge_weight[sorted_i]
+            picked_edgeIds.add(sorted_i.item())
+            picked_nodes.add(from_node)
+            picked_nodes.add(to_node)
+            picked_edges.add(sorted_i)
+    
+    return weightSum, picked_edges, picked_nodes
 
 # DATASET CANDIDATES
 # webbase-2001
