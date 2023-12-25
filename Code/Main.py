@@ -15,7 +15,9 @@ torch.manual_seed(123)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Current CUDA version: ", torch.version.cuda, "\n")
 
-original, converted_dataset, target = dl.LoadData(10)
+
+
+original, converted_dataset, target = dl.LoadData(1000)
 
 #original, converted_dataset, target = dl.LoadTestData()
 
@@ -127,12 +129,12 @@ for key in matchCriteriaData:
     filepaths.append(key)
     print("ADDING DATASET: ", key)
     
-filepaths = ["data/Gset/G21/G21.mtx"]
+filepaths = ["data/Pajek/GD98_b/GD98_b.mtx"]
 
-#for graphId, filepath in enumerate(filepaths):
-#    graphId = 0
-#    val_original_graphs, val_data, val_y = dl.LoadValGoodCase([filepath])
-for graphId, filepath in enumerate(val_original_graphs):
+for graphId, filepath in enumerate(filepaths):
+    graphId = 0
+    val_original_graphs, val_data, val_y = dl.LoadValGoodCase([filepath])
+#for graphId, filepath in enumerate(val_original_graphs[:1]):
     
     print("-------------------")
     print("EVALUATING: ", filepath)    

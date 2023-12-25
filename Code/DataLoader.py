@@ -252,8 +252,9 @@ def LoadValGoodCase(filenames = []):
         original_graph = FromMMformat(mmformat)
         line_graph = lgc.ToLineGraph(FromMMformat(mmformat), original_graph.edge_attr, verbose = False)
         converted_dataset.append(line_graph)
+        original_graph.x = lgc.AugmentNodeFeatures(original_graph)
         dataset.append(original_graph)
-    
+
         blossominput = []
         for i in range(len(original_graph.edge_index[0])):
             blossominput.append((original_graph.edge_index[0][i].item(),

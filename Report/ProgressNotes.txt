@@ -14,13 +14,21 @@ IMPROVEMENTS
 4. skip connections
 5. extra features
 
-RESULTS ON ONE DATAEXAMPLE
+RESULTS ON ONE DATAEXAMPLE MNIST
 1. 50-60% of OPT
 2 After adding features:
   deg / weight diff / max / relative diff ->
   -> 75% / 85% / 90% / 91%
   one by one
   -> 15% / 15% / 10% / 15%
+
+Line graph vs normal
+MNIST:
+92% vs 77%
+GOOD CASE data/Pajek/GD98_b/GD98_b.mtx:
+143% vs 0%
+
+
 
 
 EXPLORING
