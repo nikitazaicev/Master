@@ -8,6 +8,7 @@ import pickle
 import numpy as np
 import copy
 import ssgetpy as ss
+import os
 from scipy.io import mmread
 import torch_geometric.transforms as T
 
@@ -45,130 +46,229 @@ def RemoveDoubleEdges(graph):
             pass
         try:
             new_atrs[prev_id] = graph.edge_attr[prev_id]
+            new_weights[prev_id] = graph.edge_attr[prev_id]
         except Exception:
             pass
 
     return new_edges, new_weights, new_atrs
 
-def LoadTestData():
-     
-    #datas = KarateClub(transform=NormalizeFeatures())
-    #datas = TUDataset("/Data", "MUTAG", transform=NormalizeFeatures())
-    datas = TUDataset("/Data", "REDDIT-BINARY", transform=NormalizeFeatures())[:10]
-    datalist = []
-    original = []
-    for data in datas:
-               
-        testdata = Data()
-        new_edges, new_weights, new_atrs = RemoveDoubleEdges(data)
-        
-        testdata.edge_index = new_edges
-        testdata.edge_weight = torch.rand(len(testdata.edge_index[0]))
-        testdata.edge_attr = testdata.edge_weight.flatten()
-        testdata.num_nodes = data.num_nodes#len(data.x) 
-        testdata.num_edges = len(testdata.edge_index[0])
-        nodefeats = torch.ones([testdata.num_nodes])
-        testdata.node_features = nodefeats
-        testdata.x = torch.ones([testdata.num_nodes,1])
-        original.append(testdata.clone())
-        datalist.append(testdata)
+def WeightsExperiment(graph):    
+    graphOnes, graphOneTwos = copy.deepcopy(graph), copy.deepcopy(graph)
+    size = graph.edge_weight.size()
+    graphOnes.edge_weight = torch.ones(size,dtype=torch.float)
+    graphOneTwos.edge_weight = torch.randint(1,3,size,dtype=torch.float)
+    graphs = [graph, graphOnes, graphOneTwos]
+    targets = []
+    for g in graphs:
+        blossominput = []
+        for i in range(len(g.edge_index[0])):
+            blossominput.append((g.edge_index[0][i].item(),
+                                 g.edge_index[1][i].item(),
+                                 g.edge_weight[i][0].item()))
+
+        targetClasses = AssignTargetClasses(g, maxWeightMatching(blossominput))
+        targets.append(targetClasses)
+        g.y = targetClasses
+
+    return graphs, targets
+
+def LoadTrain(datasetname='MNIST', skipLine=True, limit=0):
+    if not os.path.exists('data/train/target_data.pkl'): LoadData(datasetname,limit)
+    file_name = 'data/train/target_data.pkl'
+    with open(file_name, 'rb') as file:
+        print(file_name, " loaded")
+        target = pickle.load(file)
     
-    #for data in datas: data.num_edges = len(data.x)
-    target = []
+    if limit == 0: limit = len(target)
+    if limit > 0: target = target[:limit]   
+    
+    transform = T.Compose([NormalizeFeatures()])
+    dataset = GNNBenchmarkDataset('data', datasetname,  split="train", transform=transform)[:limit]
+    dataset = PreproccessOriginal(dataset,target,datasetname)
+    
+    converted_dataset = 0
+    if not skipLine:
+        file_name = 'data/train/converted_dataset.pkl'
+        with open(file_name, 'rb') as file:
+            print(file_name, " loaded")
+            converted_dataset = pickle.load(file)[:limit]
+            
+    return dataset, converted_dataset, target
+
+def LoadVal(datasetname='MNIST', skipLine=True, limit=0):
+    if not os.path.exists('data/val/target_data.pkl'): LoadData(datasetname)
+    file_name = 'data/val/target_data.pkl'
+    with open(file_name, 'rb') as file:
+        print(file_name, " loaded")
+        target = pickle.load(file)
+    
+    if limit == 0: limit = len(target)
+    if limit > 0: target = target[:limit]       
+    
+    transform = T.Compose([NormalizeFeatures()])
+    dataset = GNNBenchmarkDataset('data', datasetname, split="val", transform=transform)[:limit] 
+    dataset = PreproccessOriginal(dataset,target,datasetname)
+    
+    converted_dataset = 0
+    if not skipLine:
+        file_name = 'data/train/converted_dataset.pkl'
+        with open(file_name, 'rb') as file:
+            print(file_name, " loaded")
+            converted_dataset = pickle.load(file)[:limit] 
+    
+    return dataset, converted_dataset, target
+
+def LoadTest(datasetname='MNIST', limit=0, skipLine=True):
+    if not os.path.exists('data/test/target_data.pkl'): LoadData(datasetname)
+    file_name = 'data/test/target_data.pkl'
+    with open(file_name, 'rb') as file:
+        print(file_name, " loaded")
+        target = pickle.load(file)        
+    
+    if limit == 0: limit = len(target)
+    if limit > 0: target = target[:limit]    
+    
+    transform = T.Compose([NormalizeFeatures()])
+    dataset = GNNBenchmarkDataset('data', datasetname, split="test", transform=transform)[:limit]
+    dataset = PreproccessOriginal(dataset,target,datasetname)
+    
     converted_dataset = []
+    if not skipLine:
+        file_name = 'data/train/converted_dataset.pkl'
+        with open(file_name, 'rb') as file:
+            print(file_name, " loaded")
+            converted_dataset = pickle.load(file)[:limit]
+            
+    return dataset, converted_dataset, target
+
+def SaveTrain(train_target, train_converted):    
+    file_name = 'data/train/target_data.pkl'
+    with open(file_name, 'wb') as file:
+        pickle.dump(train_target, file)
+        print(f'Object successfully saved to "{file_name}"')
+        
+    file_name = 'data/train/converted_dataset.pkl'
+    with open(file_name, 'wb') as file:
+        pickle.dump(train_converted, file)
+        print(f'Object successfully saved to "{file_name}"')
+    return
+
+def SaveVal(val_target, val_converted):             
+    file_name = 'data/val/target_data.pkl'
+    with open(file_name, 'wb') as file:
+        pickle.dump(val_target, file)
+        print(f'Object successfully saved to "{file_name}"')
+        
+    file_name = 'data/val/converted_dataset.pkl'
+    with open(file_name, 'wb') as file:
+        pickle.dump(val_converted, file)
+        print(f'Object successfully saved to "{file_name}"')
+    return
+
+def SaveTest(test_target, test_converted):                   
+    file_name = 'data/test/target_data.pkl'
+    with open(file_name, 'wb') as file:
+        pickle.dump(test_target, file)
+        print(f'Object successfully saved to "{file_name}"')
+        
+    file_name = 'data/test/converted_dataset.pkl'
+    with open(file_name, 'wb') as file:
+        pickle.dump(test_converted, file)
+        print(f'Object successfully saved to "{file_name}"')
+    return 
+
+def PreproccessOriginal(dataset, target, datasetname):
+    print("Proccessing data")
+    mydataset = []
+    for i, dataitem in enumerate(dataset): 
+        new_edges, new_weights, new_atrs = RemoveDoubleEdges(dataitem)
+        dataitem.num_edges = len(new_edges[0])
+        dataitem.edge_index = new_edges
+        dataitem.edge_weight = torch.reshape(new_weights, (len(new_weights), 1))
+        dataitem.edge_attr = new_atrs
+        dataitem.x = lgc.AugmentOriginalNodeFeatures(dataitem)
+        dataitem.y = target[i]
+        if datasetname=='MNIST': dataitem.edge_weight = torch.reshape(new_atrs, (len(new_atrs), 1))
+        mydataset.append(dataitem)
+    original = copy.deepcopy(mydataset) 
+    return original
+
+def ProccessData(dataset, datasetname):
+    mydataset = []
+    print("Proccessing graphs, total = ", len(dataset))
+    for i, dataitem in enumerate(dataset): 
+        new_edges, new_weights, new_atrs = RemoveDoubleEdges(dataitem)
+        dataitem.num_edges = len(new_edges[0])
+        dataitem.edge_index = new_edges
+        dataitem.edge_weight = torch.reshape(new_weights, (len(new_weights), 1))
+        dataitem.edge_attr = new_atrs
+        dataitem.x = lgc.AugmentOriginalNodeFeatures(dataitem)
+        if datasetname=='MNIST': dataitem.edge_weight = torch.reshape(new_atrs, (len(new_atrs), 1))
+        mydataset.append(dataitem)
+        if (i + 1) % 10 == 0: print(f'graph{i+1}/{len(dataset)}')
+    original = copy.deepcopy(mydataset)
+    dataset = mydataset
+
+    target = []
+    converted = []
     
     print("Blossom matching")
-    for dataitem in datalist:
+    for idx, dataitem in enumerate(dataset):
         blossominput = []
         for i in range(len(dataitem.edge_index[0])):
             blossominput.append((dataitem.edge_index[0][i].item(),
                                  dataitem.edge_index[1][i].item(),
-                                 dataitem.edge_weight[i].item()))
-        target.append(maxWeightMatching(blossominput))
+                                 dataitem.edge_attr[i].item()))
+
+        targetClasses = AssignTargetClasses(dataitem, maxWeightMatching(blossominput))
+        target.append(targetClasses)
+        original[idx].y = targetClasses
         line_graph = lgc.ToLineGraph(dataitem, dataitem.edge_attr, verbose = False)
-        converted_dataset.append(line_graph)
-        
-    assert(original[0].num_edges==len(original[0].edge_index[0]))
-    return original, converted_dataset, target
+        converted.append(line_graph) 
+        if (idx + 1) % 10 == 0: print(f'graph{idx+1}/{len(dataset)}')                   
+    
+    return original, converted, target   
 
-
-def LoadData(count=1000, datasetname='MNIST'):
+def LoadData(datasetname='MNIST', limit=0):
     print("LOADING DATASETS")
     print("-------------------")
-    try:
-        
-        
-        file_name = 'data/target_data.pkl'
-        with open(file_name, 'rb') as file:
-            print(file_name, " loaded")
-            target = pickle.load(file)
-            
-        file_name = 'data/converted_dataset.pkl'
-        with open(file_name, 'rb') as file:
-            print(file_name, " loaded")
-            converted_dataset = pickle.load(file)
-        
-        transform = T.Compose([NormalizeFeatures()])
-        dataset = GNNBenchmarkDataset('data', datasetname, transform=transform)[:count]
-        
-        mydataset = []
-        for i, dataitem in enumerate(dataset): 
-            new_edges, new_weights, new_atrs = RemoveDoubleEdges(dataitem)
-            dataitem.edge_index = new_edges
-            dataitem.num_edges = len(new_weights)
-            dataitem.edge_weight = torch.reshape(new_weights, (len(new_weights), 1))
-            dataitem.edge_attr = new_atrs
-            dataitem.x = lgc.AugmentNodeFeatures(dataitem)
-            
-            if datasetname=='MNIST': dataitem.edge_weight = torch.reshape(new_atrs, (len(new_atrs), 1))
-            mydataset.append(dataitem)
-        dataset = mydataset   
-        return dataset, converted_dataset[:count], target[:count]
-    
-    except Exception:
-        print(file_name, " not found creating new datafile")
-        print("Downloading initial dataset")
-        transform = T.Compose([NormalizeFeatures()])
-        dataset = GNNBenchmarkDataset('data', datasetname, transform=transform)[:count]
-        mydataset = []
-        for i, dataitem in enumerate(dataset): 
-            new_edges, new_weights, new_atrs = RemoveDoubleEdges(dataitem)
-            dataitem.num_edges = len(new_edges[0])
-            dataitem.edge_index = new_edges
-            dataitem.edge_weight = torch.reshape(new_weights, (len(new_weights), 1))
-            dataitem.edge_attr = new_atrs
-            dataitem.x = lgc.AugmentNodeFeatures(dataitem)
-            if datasetname=='MNIST': dataitem.edge_weight = torch.reshape(new_atrs, (len(new_atrs), 1))
-            mydataset.append(dataitem)
-        original = copy.deepcopy(mydataset)
-        dataset = mydataset
-        
-        target = []
-        converted_dataset = []
-        
-        
-        print("Blossom matching")
-        for dataitem in dataset:
-            blossominput = []
-            for i in range(len(dataitem.edge_index[0])):
-                blossominput.append((dataitem.edge_index[0][i].item(),
-                                     dataitem.edge_index[1][i].item(),
-                                     dataitem.edge_attr[i].item()))
+    transform = T.Compose([NormalizeFeatures()])
+    print("LOADING TRAINING DATA")
+    dataset = GNNBenchmarkDataset('data', datasetname, split="train", transform=transform)
+    if limit>0: dataset = dataset[:limit]
+    original, converted, target = ProccessData(dataset, datasetname)              
+    SaveTrain(target, converted)
+    print("SAVED TRAINING DATA")
+    print("-------------------")
+    print("LOADING VALIDATION DATA")
+    dataset = GNNBenchmarkDataset('data', datasetname, split="val", transform=transform)
+    if limit>0: dataset = dataset[:limit]
+    original, converted, target = ProccessData(dataset, datasetname)              
+    SaveVal(target, converted)
+    print("SAVED VALIDATION DATA")
+    print("-------------------")
+    print("LOADING TEST DATA")
+    dataset = GNNBenchmarkDataset('data', datasetname, split="test", transform=transform)
+    if limit>0: dataset = dataset[:limit]
+    original, converted, target = ProccessData(dataset, datasetname)              
+    SaveTest(target, converted)
+    print("SAVED TEST DATA")
+    print("-------------------")
+    return 
 
-            target.append(maxWeightMatching(blossominput))
-            line_graph = lgc.ToLineGraph(dataitem, dataitem.edge_attr, verbose = False)
-            converted_dataset.append(line_graph)
-        
-        with open(file_name, 'wb') as file:
-            pickle.dump(target, file)
-            print(f'Object successfully saved to "{file_name}"')
-            
-        file_name = 'data/converted_dataset.pkl'
-        with open(file_name, 'wb') as file:
-            pickle.dump(converted_dataset, file)
-            print(f'Object successfully saved to "{file_name}"')
-    
-    return original, converted_dataset, target    
+def AssignTargetClasses(graph, target):
+    classes = [] 
+    for j in range(graph.num_edges):
+        from_node = graph.edge_index[0][j].item()
+        to_node = graph.edge_index[1][j].item()
+        if target[from_node] == to_node:
+            classes.append(1)
+        else:
+            classes.append(0)
+    y = torch.LongTensor(classes).to(device)
+    graph.y = y
+    return y
+
 
 def VisualizeConverted(graph):
     edge_index = graph.edge_index
@@ -252,7 +352,7 @@ def LoadValGoodCase(filenames = []):
         original_graph = FromMMformat(mmformat)
         line_graph = lgc.ToLineGraph(FromMMformat(mmformat), original_graph.edge_attr, verbose = False)
         converted_dataset.append(line_graph)
-        original_graph.x = lgc.AugmentNodeFeatures(original_graph)
+        original_graph.x = lgc.AugmentOriginalNodeFeatures(original_graph)
         dataset.append(original_graph)
 
         blossominput = []

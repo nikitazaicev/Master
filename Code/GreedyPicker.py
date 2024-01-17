@@ -1,5 +1,5 @@
 import torch
-import teststuff
+import ReductionsManager as rm
 from torch_geometric.datasets import SuiteSparseMatrixCollection, GNNBenchmarkDataset, KarateClub, TUDataset
 from torch_geometric.transforms import NormalizeFeatures, RemoveIsolatedNodes
 from DataLoader import RemoveDoubleEdges, FromMMformat
@@ -9,7 +9,7 @@ import ssgetpy as ss
 from scipy.io import mmread
 
 
-def GreedyMatchingOrig(graph, prevEdgeIndeces=None):
+def GreedyMatchingOrig(graph, prevEdgeIndeces=None, verbose=False):
     
     totalWeight = 0
     if prevEdgeIndeces is None: pickedEdgeIndeces = set()
@@ -32,9 +32,9 @@ def GreedyMatchingOrig(graph, prevEdgeIndeces=None):
             totalWeight += edge_weights[original_index].item()
 
             
-    print(f"Greedy matching total weight result = {totalWeight:.4f}")
-    print(f"In total {len(pickedEdgeIndeces)} out of {len(edge_weights)} edges were picked")
-    print(f"{len(takenNodes)} out of {graph.num_nodes} nodes in the matching")
+    if verbose: print(f"Greedy matching total weight result = {totalWeight:.4f}")
+    if verbose: print(f"In total {len(pickedEdgeIndeces)} out of {len(edge_weights)} edges were picked")
+    if verbose: print(f"{len(takenNodes)} out of {graph.num_nodes} nodes in the matching")
     return totalWeight, pickedEdgeIndeces 
 
 
@@ -45,7 +45,7 @@ def GreedyMatchingLine(graph):
     pickedEdgeIndeces = set()
     sorted_edges = torch.sort(graph.x[:, [0]].flatten(), descending=True)    
     
-    adj = teststuff.GenerateAdjList(graph)
+    adj = rm.GenerateAdjList(graph)
     count = 0
     for i, original_index in enumerate(sorted_edges.indices):
         original_index = original_index.item()
@@ -130,7 +130,7 @@ def GreedyScoresOriginal(pred, original_g, threshold = 0.5):
         if (sorted_pred.values[i] >= threshold 
             and (from_node not in picked_nodes 
             and to_node not in picked_nodes)):
-            weightSum += original_g.edge_weight[sorted_i]
+            weightSum += original_g.edge_weight[sorted_i][0]
             picked_edgeIds.add(sorted_i.item())
             picked_nodes.add(from_node)
             picked_nodes.add(to_node)

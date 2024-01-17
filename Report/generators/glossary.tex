@@ -5,16 +5,25 @@
 \renewcommand{\glsnamefont}[1]{\textbf{#1}}
 
 %Create acronyms here.
-\newacronym{saas}{SaaS}{Software as a Service}
-\newacronym{nn}{NN}{Neural Network}
+%\newacronym{nn}{NN}{Neural Network}
 \newacronym{gnn}{GNN}{Graph Neural Network}
 \newacronym{vcs}{VCS}{Version Control System}
-\newacronym{ml}{ML}{Machine Learning}
+%\newacronym{ml}{ML}{Machine Learning}
+%\newacronym{ai}{AI}{Artificial Intelligence}
 \newacronym{co}{CO}{Combinatorial Optimization}
 \newacronym{mwm}{MWM}{Maximum Weighted Matching}
-\newacronym{mis}{MIS}{Maximum Indepndent Set}
+\newacronym{mis}{MIS}{Maximal Indepndent Set}
 
 
 %You can also do explanations.
 \newglossaryentry{git}{name={Git},
-    description={Git is a \gls{vcs} for tracking changes in computer files and coordinating work on those files among multiple people}}
+    description={Git and GitHub is a \gls{vcs} for tracking changes in computer files and coordinating work on those files among multiple people}}
+\newglossaryentry{ga}{name={Greedy Algorithm},
+    description={Algorithm that usually tries to sort input based on some criteria and then naively produces the answer based on the order of sorting}}
+\newglossaryentry{ai}{name={Artificial Intelligence},
+    description={Artificial Intelligence is a field of study regarding intelligence simulated by computers. Where intelligence is meant in context of human intelligence}}
+\newglossaryentry{ml}{name={Machine Learning},
+    description={Machine Learning studies algorithms that learn general patterns and make predictions based on some form of input. It is one form of \gls{ai}}}
+\newglossaryentry{nn}{name={Neural Network},
+    description={Neural Network is one of many technologies used in\gls{ml}}}
+

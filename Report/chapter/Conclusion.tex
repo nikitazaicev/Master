@@ -1,7 +1,10 @@
 \chapter{Conclusion}
 
-\gls{ml} has become a powerfull tool for solving a wide variety of problems. One such field that has been particulary challenging is \gls{co}. 
+
+Results show that \gls{gnn}s are capable of solving \gls{mwm}, but the approaches presented in this work showed worse performance overall comapared to a simple standard greedy algorithm. The margin between the results was not big enough to indicate that the approach was completely sensless. Compared to the greedy algorithm model showed some level of "understanding" of the task at hand and in some special cases even manages to beat the greedy algortihm. It is worth mentioning that theese cases were manualy chosen because of they abuse the naiveness of the greedy algorithm, but it does still indicate that such cases do exist and therefore there is value in using \gls{gnn} instead of a greedy algorithm. 
 
 \section{Future work}
 
-Results show that this approach
+The fact that \gls{gnn} in this work underperformed does not neccessary mean that the \gls{gnn}s are in general unfit for \gls{mwm} problem. There several potential improvements at hand. A deeper or wider model can be trained, meaning adding more layers as well as neurons to each layer to potentialy improve models ability to recognise complex patterns at the cost of longer training and prediction times. However for this particular architecture adding more layers showed little to no effect. Theres also a variety of different architectures that can be tryed out. An unsupervised approach is a good potential candidate where precomputing the optimal solution would not be needed. Instead the model can try to find the best solution by incentivising it to get as high weight sum as possible, in a way resembeling a game.
+
+\section{Final words}
