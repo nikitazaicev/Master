@@ -23,7 +23,11 @@ try:
 except Exception: print("No model found. EXIT")
 
 
-graphs, converted_dataset, target = dl.LoadTest(limit=10)
+#graphs, converted_dataset, target = dl.LoadTest(limit=10)
+graphs, converted_dataset, target = dl.LoadDataCustom(limit=10)
+
+
+print("Total graphs = ", len(graphs))
 print("----------------")
 
 resultsGNN = []
@@ -32,8 +36,8 @@ resultsGreedy = []
 for idx, graph in enumerate(graphs):
     
     weightSum = 0
-    graph, weightRed = rm.ApplyReductionRules(graph)
-    weightSum += weightRed
+    #graph, weightRed = rm.ApplyReductionRules(graph)
+    #weightSum += weightRed
     start_time = time.time()
     weightGreedy, pickedEdgeIndeces = gp.GreedyMatchingOrig(graph)
     timeTotal = time.time() - start_time
@@ -46,10 +50,11 @@ for idx, graph in enumerate(graphs):
     weightRes, pickedEdgeIndeces = gp.GreedyMatchingOrig(graph)
     weightSum += weightGnn
     weightSum += weightRes
+    weightResDif = weightRes/weightSum 
     timeTotal = time.time() - start_time
-    resultsGNN.append([("TIME", timeTotal),("WEIGHT", weightSum.item())])
+    resultsGNN.append([("TIME", timeTotal),("WEIGHT", weightSum.item()),("Gnn Res weight Diff", weightResDif.item())])
     
-avgTimeGnn, avgWeightGnn, avgTimeGreed, avgWeightGreed = 0,0,0,0
+avgTimeGnn, avgWeightGnn, avgTimeGreed, avgWeightGreed, GnnResDif = 0,0,0,0,0
 for idx, r in enumerate(resultsGNN):
     #print("GNN = ", resultsGNN[idx])
     #print("GREED = ", resultsGreedy[idx])
@@ -58,6 +63,7 @@ for idx, r in enumerate(resultsGNN):
     avgWeightGnn += resultsGNN[idx][1][1]
     avgTimeGreed += resultsGreedy[idx][0][1]
     avgWeightGreed += resultsGreedy[idx][1][1]
+    weightResDif += resultsGNN[idx][2][1]
     
     
 print("GNN AVG Time = ", avgTimeGnn/len(resultsGNN))
@@ -65,6 +71,8 @@ print("GREED AVG Time = ", avgTimeGreed/len(resultsGNN))
 
 print("GNN AVG Weight = ", avgWeightGnn/len(resultsGNN))
 print("GREED AVG Weight = ", avgWeightGreed/len(resultsGNN))
+
+print("weightResDif = ", (weightResDif/len(resultsGNN)))
 
 print("----------------")
 

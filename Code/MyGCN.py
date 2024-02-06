@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, Linear
+from torch_geometric.nn import GCNConv, Linear, SAGEConv
 from torch_geometric.utils import negative_sampling
 import GreedyPicker as gp
 import ReductionsManager as rm
@@ -43,9 +43,13 @@ class EdgeClassifier(torch.nn.Module):
         x_src, x_dst = nodeEmbed[graph.edge_index[0]], nodeEmbed[graph.edge_index[1]]
         
         edgeFeats = torch.zeros([len(graph.edge_index[0]),1]).to(device)
+        uniqueEdges = set()
         for i in range(len(graph.edge_index[0])):
             from_node = graph.edge_index[0][i]
             to_node = graph.edge_index[1][i]
+            
+            if (from_node, to_node) in uniqueEdges: continue
+            uniqueEdges.add((from_node, to_node))
             w = graph.edge_weight[i]            
             edgeFeats[i][0] = 1      
         
@@ -69,6 +73,29 @@ class MyGCNEdge(torch.nn.Module):
         self.conv1 = GCNConv(7, 640)
         self.conv2 = GCNConv(640, 640)
         # self.conv3 = GCNConv(640, 640, aggr="max")
+        self.embed = Linear(1280, 80)
+
+    def forward(self, data):        
+        x, edge_index, edge_weight = data.x, data.edge_index, data.edge_weight
+        
+        x = self.conv1(x, edge_index, edge_weight)
+        identity = F.relu(x)
+
+        x = self.conv2(identity, edge_index, edge_weight)
+        x = F.relu(x)
+        
+        # x = self.conv3(x, edge_index)
+        # x = F.relu(x)
+        x = torch.cat((x,identity),1)
+        x = self.embed(x)
+        return x
+
+class MySAGEEdge(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = SAGEConv(7, 640)
+        self.conv2 = SAGEConv(640, 640)
+        # self.conv3 = SAGEConv(640, 640, aggr="max")
         self.embed = Linear(1280, 80)
 
     def forward(self, data):        

@@ -21,7 +21,7 @@ print(torch.version.cuda)
 
 
 def ApplyReductionRules(graph):
-    secondBestWs = [(0,0,-1,-1)] * graph.num_nodes # (max,max2,id,id2)
+    topWeights = [(0,0,0,-1,-1,-1,-1,-1,-1)] * graph.num_nodes # (max,max2,max3,id,id2,id3,endNode,endNode2,endNode3)
     adj = WeightedAdjList(graph)
     
     for i in range(len(graph.edge_index[0])):
@@ -30,18 +30,42 @@ def ApplyReductionRules(graph):
         w = graph.edge_weight[i]
         
         n = from_node
-        best, idx = secondBestWs[n][0], secondBestWs[n][2]
-        if (best < w): secondBestWs[n] = (w,best,i,idx)
-        best2, idx2 = secondBestWs[n][1], secondBestWs[n][3]
+        best, idx, endNode = topWeights[n][0], topWeights[n][3], topWeights[n][6]
+        if (best < w): 
+            topWeights[n] = (w,best,topWeights[n][2],
+                               i,idx,topWeights[n][5],
+                               to_node,endNode,topWeights[n][8])
+        
+        best2, idx2, endNode2 = topWeights[n][1], topWeights[n][4], topWeights[n][7]
         if (best > w and best2 < w): 
-            secondBestWs[n] = (secondBestWs[n][0],w,secondBestWs[n][2],i)
+            topWeights[n] = (topWeights[n][0],w,best2,
+                               topWeights[n][3],i,idx2,
+                               topWeights[n][6],to_node,endNode2)
+        
+        best3, idx3, endNode3 = topWeights[n][2], topWeights[n][5], topWeights[n][8]
+        if (best2 > w and best3 < w): 
+            topWeights[n] = (topWeights[n][0],topWeights[n][1],w,
+                               topWeights[n][3],topWeights[n][4],i,
+                               topWeights[n][6],topWeights[n][7],to_node)
         
         n = to_node
-        best, idx = secondBestWs[n][0], secondBestWs[n][2]
-        if (best < w): secondBestWs[n] = (w,best,i,idx)
-        best2, idx2 = secondBestWs[n][1], secondBestWs[n][3]
+        best, idx, endNode = topWeights[n][0], topWeights[n][3], topWeights[n][6]
+        if (best < w): 
+            topWeights[n] = (w,best,topWeights[n][2],
+                               i,idx,topWeights[n][5],
+                               to_node,endNode,topWeights[n][8])
+        
+        best2, idx2, endNode2 = topWeights[n][1], topWeights[n][4], topWeights[n][7]
         if (best > w and best2 < w): 
-            secondBestWs[n] = (secondBestWs[n][0],w,secondBestWs[n][2],i)
+            topWeights[n] = (topWeights[n][0],w,best2,
+                               topWeights[n][3],i,idx2,
+                               topWeights[n][6],to_node,endNode2)
+        
+        best3, idx3, endNode3 = topWeights[n][2], topWeights[n][5], topWeights[n][8]
+        if (best2 > w and best3 < w): 
+            topWeights[n] = (topWeights[n][0],topWeights[n][1],w,
+                               topWeights[n][3],topWeights[n][4],i,
+                               topWeights[n][6],topWeights[n][7],to_node)
        
     #rule 1 dominating edge
     weightSum, wasReduced, pickedNodeIds = torch.tensor([0.0]), True, set()
@@ -52,20 +76,44 @@ def ApplyReductionRules(graph):
             if from_node in pickedNodeIds or to_node in pickedNodeIds: continue
             w = graph.edge_weight[i]
             
-            FromNodeBest, FromNodeBest2 = secondBestWs[from_node][0], secondBestWs[from_node][1]
-            FromNodeBestId, FromNodeBest2Id = secondBestWs[from_node][2], secondBestWs[from_node][3]
-            ToNodeBest, ToNodeBest2 = secondBestWs[to_node][0], secondBestWs[to_node][1]
-            ToNodeBestId, ToNodeBest2Id = secondBestWs[to_node][2], secondBestWs[to_node][3]
+            FromBest, FromBest2, FromBest3 = topWeights[from_node][0], topWeights[from_node][1], topWeights[from_node][2]
+            FromBestId, FromBestId2, FromBestId3  = topWeights[from_node][3], topWeights[from_node][4], topWeights[from_node][5]
+            FromBestEnd, FromBestEnd2, FromBestEnd3  = topWeights[from_node][6], topWeights[from_node][7], topWeights[from_node][8]
+            
+            ToBest, ToBest2, ToBest3 = topWeights[to_node][0], topWeights[to_node][1], topWeights[to_node][2]
+            ToBestId, ToBestId2, ToBestId3  = topWeights[to_node][3], topWeights[to_node][4], topWeights[to_node][5]
+            ToBestEnd, ToBestEnd2, ToBestEnd3  = topWeights[to_node][6], topWeights[to_node][7], topWeights[to_node][8]
             
             neighborSum = 0
-            if FromNodeBestId != i: neighborSum += FromNodeBest 
-            else: neighborSum += FromNodeBest2
-            if ToNodeBestId != i: neighborSum += ToNodeBest
-            else: neighborSum += ToNodeBest2
+
+            if FromBestId == i: 
+                FromBest, FromBestId, FromBestEnd = FromBest2, FromBestId2, FromBestEnd2
+                FromBest2, FromBestId2, FromBestEnd2 = FromBest3, FromBestId3, FromBestEnd3
+            elif FromBestId2 == i: 
+                FromBest2, FromBestId2, FromBestEnd2 = FromBest3, FromBestId3, FromBestEnd3
+
+            if ToBestId == i: 
+                ToBest, ToBestId, ToBestEnd = ToBest2, ToBestId2, ToBestEnd2
+                ToBest2, ToBestId2, ToBestEnd2 = ToBest3, ToBestId3, ToBestEnd3
+            elif ToBestId2 == i: 
+                ToBest2, ToBestId2, ToBestEnd2 = ToBest3, ToBestId3, ToBestEnd3
+            
+            if FromBestEnd != ToBestEnd: 
+                neighborSum += FromBest + ToBest 
+            elif FromBest > ToBest: 
+                neighborSum += FromBest + ToBest2
+            else: neighborSum += FromBest2 + ToBest
+                
             
             if w >= neighborSum: 
-
-                ReduceBestWeightsTable(graph, secondBestWs, i, adj)
+                
+                # print((from_node, to_node), w, " >= ", neighborSum)
+                # print(adj[from_node])
+                # print(adj[to_node])
+                # print(FromBest,FromBest2,FromBestEnd,FromBestEnd2)
+                # print(ToBest,ToBest2,ToBestEnd,ToBestEnd2)
+                # exit(1)
+                ReduceBestWeightsTable(graph, topWeights, i, adj)
                 weightSum += w
                 
                 pickedNodeIds.add(from_node)
@@ -76,25 +124,35 @@ def ApplyReductionRules(graph):
 
     return ReduceGraphOriginal(graph, pickedNodeIds), weightSum.item()
 
-def ReduceBestWeightsTable(graph, secondBestWs, deleteEdge, adj):
+def ReduceBestWeightsTable(graph, topWeights, deleteEdge, adj):
     pickedNodes = {graph.edge_index[0][deleteEdge].item(), graph.edge_index[1][deleteEdge].item()}
     for n in pickedNodes:
         for (neighbor,w,eId) in adj[n]:
             if neighbor in pickedNodes: continue
-            bestW, bestW2 = secondBestWs[neighbor][0], secondBestWs[neighbor][1]
-            bestId, best2Id = secondBestWs[neighbor][2], secondBestWs[neighbor][3]
-            if bestId == eId or best2Id == eId: 
-                nextBest, nextBestI = 0, -1
-                for (idx,weight,edgeId) in adj[neighbor]:
-                    if (bestId != edgeId and best2Id != edgeId) and weight > nextBest: 
+            bestW, bestW2, bestW3 = topWeights[neighbor][0], topWeights[neighbor][1], topWeights[neighbor][2]
+            bestId, bestId2, bestId3 = topWeights[neighbor][3], topWeights[neighbor][4], topWeights[neighbor][5]
+            nodeEnd, nodeEnd2, nodeEnd3 = topWeights[neighbor][6], topWeights[neighbor][7], topWeights[neighbor][8]
+            if bestId == eId or bestId2 == eId or bestId3 == eId: 
+                
+                nextBest, nextBestId, nextEndNode = 0, -1, -1
+                for (endNode,weight,edgeId) in adj[neighbor]:
+                    if (bestId != edgeId and bestId2 != edgeId and bestId3 != edgeId) and weight > nextBest: 
                         nextBest = w 
-                        nextBestI = idx
+                        nextBestId = edgeId
+                        nextEndNode = endNode
                         
                 if bestId == eId:
-                    secondBestWs[neighbor] = (bestW2,nextBest,best2Id,nextBestI)
-                if best2Id == eId:
-                    secondBestWs[neighbor] = (bestW,nextBest,bestId,nextBestI)
-                
+                    topWeights[neighbor] = (bestW2,bestW3,nextBest,
+                                            bestId2,bestId3,nextBestId,
+                                            nodeEnd2, nodeEnd3, nextEndNode)
+                if bestId2 == eId:
+                    topWeights[neighbor] = (bestW,bestW3,nextBest,
+                                            bestId,bestId3,nextBestId,
+                                            nodeEnd, nodeEnd3, nextEndNode)
+                if bestId3 == eId:
+                    topWeights[neighbor] = (bestW,bestW2,nextBest,
+                                            bestId,bestId2,nextBestId,
+                                            nodeEnd,nodeEnd2,nextEndNode)
             adj[neighbor].remove((n,w,eId))
 
     return

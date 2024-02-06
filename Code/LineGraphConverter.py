@@ -77,40 +77,83 @@ def CountExtraFeaturesOriginal(graph):
     return torch.cat((rels, diffs, sums, maxs, maxs2), dim=-1)
 
 
-def CountDegree(graph):
+def CountDegree(graph, undirected = True):
     edge_index = graph.edge_index
     num_nodes = graph.num_nodes
     deg = [0] * num_nodes
     for i in range(len(edge_index[0])):
         from_node = edge_index[0][i].item()
-        #to_node = edge_index[1][i].item()
+        to_node = edge_index[1][i].item()
         deg[from_node]+=1
+        if not undirected: deg[to_node]+=1
     return torch.Tensor(deg).unsqueeze(1)
 
-def AugmentNodeFeatures(graph):
+def AugmentNodeFeatures(graph, undirected = True):
     graph.x = graph.node_features.resize(len(graph.node_features),1)
     graph.node_features = graph.x 
     
-    degs = CountDegree(graph)
+    degs = CountDegree(graph, undirected)
     graph.x = torch.cat((graph.x, degs), dim=-1)
     feats = CountExtraFeatures(graph)
     graph.x = torch.cat((graph.x, feats), dim=-1)
     return graph.x
 
-def AugmentOriginalNodeFeatures(graph):
+def AugmentOriginalNodeFeatures(graph, undirected = True):
     
     graph.x = torch.ones([graph.num_nodes,1])
     graph.node_features = graph.x
     
-    degs = CountDegree(graph)
+    degs = CountDegree(graph, undirected)
     graph.x = torch.cat((graph.x, degs), dim=-1)
     feats = CountExtraFeaturesOriginal(graph)
     graph.x = torch.cat((graph.x, feats), dim=-1)
     return graph.x
 
-def ToLineGraph(graph, edge_weight, verbose = False):
+def RemoveDoubleEdges(graph):
+    unique = set()
+    idx = dict()
+    deleted = 0
+    total_edges = len(graph.edge_index[0])
+
+    for i in range(total_edges):
+        from_node = graph.edge_index[0][i].item()
+        to_node = graph.edge_index[1][i].item()
+        if (from_node,to_node) in unique or (to_node, from_node) in unique:
+            deleted += 1
+            continue
+        unique.add((from_node,to_node))
+        idx[(from_node,to_node)] = i
+    new_edges = torch.zeros([2,len(unique)],dtype=torch.int)
+    new_weights = torch.zeros([len(unique)],dtype=torch.float)
+    new_atrs = torch.zeros([len(unique)],dtype=torch.float)
+    unique  = sorted(unique)
+    for i, u  in enumerate(unique):
+        
+        new_edges[0][i] = torch.tensor(u[0])
+        new_edges[1][i] = torch.tensor(u[1])   
+        prev_id = idx[(u[0],u[1])]
+        
+        try:
+            new_weights[prev_id] = graph.edge_weight[prev_id]
+        except Exception:
+            pass
+        try:
+            new_atrs[prev_id] = graph.edge_attr[prev_id]
+            new_weights[prev_id] = graph.edge_attr[prev_id]
+        except Exception:
+            pass
+
+    return new_edges, new_weights, new_atrs
+
+def ToLineGraph(graph, verbose = False):
+    new_edges, new_weights, new_atrs = RemoveDoubleEdges(graph)
+    graph.num_edges = len(new_edges[0])
+    graph.edge_index = new_edges
+    graph.edge_attr = new_atrs
+    graph.edge_weight = torch.reshape(graph.edge_attr, (len(graph.edge_attr), 1))
 
     num_edges = graph.num_edges
+    
     edgeNodes = [set() for i in range(graph.num_nodes)]
     
     for i in range(len(graph.edge_index[0])):
@@ -144,7 +187,7 @@ def ToLineGraph(graph, edge_weight, verbose = False):
     newEdgeIndex[1] = torch.tensor(new_toEdges, dtype=torch.int64)
     
     graph.edge_index = newEdgeIndex
-    graph.node_features = edge_weight[:]
+    graph.node_features = graph.edge_weight[:]
     
     new_edgeWeights = torch.ones([len(graph.edge_index[0]),1])
     graph.edge_weight = new_edgeWeights.flatten()
@@ -158,7 +201,6 @@ def ToLineGraph(graph, edge_weight, verbose = False):
     
     assert(len(graph.edge_index[0])==len(graph.edge_weight))
     assert(graph.num_nodes==len(graph.x)) 
-    
     assert(graph.num_nodes==num_edges)
     
     return graph
