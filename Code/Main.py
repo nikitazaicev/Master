@@ -14,7 +14,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Current CUDA version: ", torch.version.cuda, "\n")
 
 #graphs, lineGraphs, target = dl.LoadTrain(limit=200)
-graphs, converted_dataset, target = dl.LoadDataCustom(limit=10)
+graphs, converted_dataset, target = dl.LoadDataCustom()#limit=10)
 
 print("Data stats")
 print("----------------")
@@ -46,7 +46,7 @@ model = MyGCN.MyGCNEdge().to(device)
 classifier = MyGCN.EdgeClassifier().to(device)
 
 #loader = DataLoader(lineGraphs, batch_size=1, shuffle=True)
-loader = DataLoader(graphs, batch_size=1, shuffle=True)
+loader = DataLoader(graphs, batch_size=100, shuffle=True)
 optimizer = torch.optim.Adam(list(model.parameters()) + list(classifier.parameters()), lr=0.001)#, weight_decay=0.0001)
 classWeights = torch.FloatTensor([0.1,0.9]).to(device)
 criterion = torch.nn.CrossEntropyLoss(weight=classWeights)
@@ -63,7 +63,7 @@ except Exception: print("No model found, training new model")
 
 torch.manual_seed(123)
 if not modelLoaded:
-    EPOCHS = 10
+    EPOCHS = 100
     for epoch in range(EPOCHS):
         model.train()
         classifier.train()
@@ -73,10 +73,9 @@ if not modelLoaded:
     
             out = model(graph).to(device)   
             out = classifier(classifier.embedEdges(out,graph))         
-            print(out[:10])
-            print(graph.y[:10])
+
             loss = F.nll_loss(out, graph.y, weight=classWeights)
-            print(loss)
+
             loss.backward()
             optimizer.step()
             
@@ -163,7 +162,6 @@ for graphId, filepath in enumerate(val_graphs): #range(1,3):
         
         duplicates.add((from_node,to_node))
         duplicates.add((to_node,from_node))
-        print("PICKED", (from_node,to_node), val_original.edge_weight[idx][0].item())
         weightMax += val_original.edge_weight[idx][0]
         
 opt_matches = len(true_edges_idx)

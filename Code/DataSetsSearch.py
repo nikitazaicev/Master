@@ -31,7 +31,8 @@ dataset = ss.search(#group = gr,
                     #kind='Weighted', 
                     limit = 10000, 
                     rowbounds = (100,5000),
-                    colbounds = (100,5000))
+                    colbounds = (100,5000),
+                    nzbounds = (1,1000000))
 matrices = dataset.download(destpath=f'data/custom', extract=True)
 for dataitem in dataset:
     filenames.append(dataitem.name)
@@ -40,13 +41,14 @@ names, graphs, lineGraphs, targets, stats = [], [], [], [], []
 
 for filename in filenames:
     print("Current graph:", filename)
-    names.append(filename)
-    continue
     
     mmformat = mmread(f'data/custom/{filename}/{filename}.mtx').toarray()
     graph = dl.FromMMformat(mmformat)
+    if graph is None: continue
+    names.append(filename)
     graphs.append(graph)
     lineGraphs.append(-1)
+    continue
     
     if graph.edge_weight is None: graph.edge_weight = graph.edge_attr
     

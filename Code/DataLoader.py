@@ -161,7 +161,6 @@ def ProccessData(dataset, datasetname, undirected = True):
     mydataset = []
     print("Proccessing graphs, total = ", len(dataset))
     for i, dataitem in enumerate(dataset): 
-
         if datasetname=='MNIST': 
             dataitem.edge_weight = torch.reshape(dataitem.edge_attr, 
                                                  (len(dataitem.edge_attr), 1))        
@@ -237,16 +236,18 @@ def LoadDataCustom(limit=0):
     print("LOADING AND PROCCESSING DATA")
     dataset = []
     for filename in filenames[:limit]:
+        print("Reading ", filename)
         mmformat = mmread(f'data/custom/{filename}/{filename}.mtx').toarray()
         graph = FromMMformat(mmformat)
+        if graph is None: continue
         dataset.append(graph)
     
-    if os.path.exists('data/custom/train/target_data.pkl'):
-        file_name = 'data/custom/train/target_data.pkl'
+    if os.path.exists('data/customtrain/target_data.pkl'):
+        file_name = 'data/customtrain/target_data.pkl'
         with open(file_name, 'rb') as file:
             print(file_name, " loaded")
             target = pickle.load(file)
-        file_name = 'data/custom/train/converted_dataset.pkl'
+        file_name = 'data/customtrain/converted_dataset.pkl'
         with open(file_name, 'rb') as file:
             print(file_name, " loaded")
             converted = pickle.load(file)
@@ -262,12 +263,12 @@ def LoadDataCustom(limit=0):
 
 
 def SaveCustom(test_target, test_converted):                   
-    file_name = 'data/custom/train/target_data.pkl'
+    file_name = 'data/customtrain/target_data.pkl'
     with open(file_name, 'wb') as file:
         pickle.dump(test_target, file)
         print(f'Object successfully saved to "{file_name}"')
         
-    file_name = 'data/custom/train/converted_dataset.pkl'
+    file_name = 'data/customtrain/converted_dataset.pkl'
     with open(file_name, 'wb') as file:
         pickle.dump(test_converted, file)
         print(f'Object successfully saved to "{file_name}"')
@@ -332,7 +333,7 @@ def FromMMformat(graph):
     for row in range(len(graph)-1):    
         for col in range(j):
             w = graph[row][col]
-            
+            if w == 0 or None: continue
             if row in nodeMap: 
                 from_nodes.append(nodeMap[row])
             else: 
@@ -347,11 +348,10 @@ def FromMMformat(graph):
                 nodeMap[col] = count
                 count+=1
                 
-            w = graph[row][col]
-            if w == 0 or w is None: new_weights.append(torch.rand(1).item())            
-            else: new_weights.append(graph[row][col])             
+            new_weights.append(graph[row][col])             
         if j < len(graph[0]): j += 1    
     
+    if len(new_weights)==0: return None
     assert(len(from_nodes)==len(to_nodes))
     dir1 = torch.Tensor([from_nodes,to_nodes]).type(torch.int64)
     dir2 = torch.Tensor([to_nodes,from_nodes]).type(torch.int64)
