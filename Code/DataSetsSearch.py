@@ -30,13 +30,18 @@ filenames = []
 dataset = ss.search(#group = gr, 
                     #kind='Weighted', 
                     limit = 10000, 
-                    rowbounds = (100,5000),
-                    colbounds = (100,5000),
-                    nzbounds = (1,1000000))
+                    rowbounds = (100,10000),
+                    colbounds = (100,10000),
+                    nzbounds = (10,1000000))
 matrices = dataset.download(destpath=f'data/custom', extract=True)
 for dataitem in dataset:
     filenames.append(dataitem.name)
-
+exit()
+file_name = 'data/custom/customdatasetfiles.pkl'
+with open(file_name, 'wb') as file:
+    pickle.dump(filenames, file)
+    print(f'Object successfully saved to "{file_name}"')    
+exit()
 names, graphs, lineGraphs, targets, stats = [], [], [], [], []
 
 for filename in filenames:

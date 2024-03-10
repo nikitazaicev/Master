@@ -1,13 +1,6 @@
 import torch
 import torch_geometric.utils as u
-import GreedyPicker as gp
-from blossom import maxWeightMatching
-import DataLoader as dl
-import torch.nn.functional as F
-from torch_geometric.datasets import SuiteSparseMatrixCollection, GNNBenchmarkDataset, KarateClub, TUDataset
-from torch_geometric.transforms import NormalizeFeatures, RemoveIsolatedNodes
-from ssgetpy import search, fetch
-from DataLoader import LoadData, Data
+from MyDataLoader import Data
 import numpy as np
 
 np.random.seed(123)
@@ -197,6 +190,7 @@ def ReduceGraph(original, graph, pickedNodeIds):
 def ReduceGraphOriginal(originalG, pickedNodeIds):  
     reducedOrig = Data()
     subset = [x for x in range(originalG.num_nodes) if x not in pickedNodeIds]
+    subset = torch.IntTensor(subset).to(device)
     new_edge_index, edge_weight = u.subgraph(subset, originalG.edge_index, originalG.edge_weight, relabel_nodes = True)    
     new_node_feature = originalG.node_features[subset]
     reducedOrig.edge_index = new_edge_index

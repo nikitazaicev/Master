@@ -1,19 +1,15 @@
 import torch
 import ReductionsManager as rm
-from torch_geometric.datasets import SuiteSparseMatrixCollection, GNNBenchmarkDataset, KarateClub, TUDataset
-from torch_geometric.transforms import NormalizeFeatures, RemoveIsolatedNodes
-from DataLoader import FromMMformat
-import pickle
-from blossom import maxWeightMatching
-import ssgetpy as ss
-from scipy.io import mmread
 
+torch.manual_seed(123)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def GreedyMatchingOrig(graph, prevEdgeIndeces=None, verbose=False):
     
     totalWeight = 0
     if prevEdgeIndeces is None: pickedEdgeIndeces = set()
     else: pickedEdgeIndeces = prevEdgeIndeces
+    pickedPairs = set()
     takenNodes = set()
     edge_weights = graph.edge_weight.flatten()
 
@@ -29,14 +25,27 @@ def GreedyMatchingOrig(graph, prevEdgeIndeces=None, verbose=False):
             takenNodes.add(from_node)
             takenNodes.add(to_node)
             pickedEdgeIndeces.add(original_index)
+            pickedPairs.add((from_node,to_node))
             totalWeight += edge_weights[original_index].item()
-
+        
+    for i in range(len(graph.edge_index[0])):
+        from_node = graph.edge_index[0][i].item()
+        to_node = graph.edge_index[1][i].item()
+        if (from_node, to_node) in pickedPairs or (to_node, from_node) in pickedPairs: 
+            pickedEdgeIndeces.add(i)    
             
     if verbose: print(f"Greedy matching total weight result = {totalWeight:.4f}")
     if verbose: print(f"In total {len(pickedEdgeIndeces)} out of {len(edge_weights)} edges were picked")
     if verbose: print(f"{len(takenNodes)} out of {graph.num_nodes} nodes in the matching")
     return totalWeight, pickedEdgeIndeces 
 
+def GreedyMatchingTargets(graph):
+    target = [0]*graph.num_edges
+    totalWeight, pickedEdgeIndeces = GreedyMatchingOrig(graph)
+    for idx in pickedEdgeIndeces:      
+        target[idx] = 1    
+    
+    return torch.LongTensor(target).to(device)
 
 def GreedyMatchingLine(graph):
     
@@ -116,8 +125,8 @@ def GreedyScores(pred, graph, original_g, threshold = 0.5):
     excluded_edgeIds.update(picked_neighbors)
     return weightSum, excluded_edgeIds, len(picked_edgeIds)
 
-def GreedyScoresOriginal(pred, original_g, threshold = 0.5):
-    picked_nodes = set()
+def GreedyScoresOriginal(pred, original_g, threshold = 0.5, dropThreshold = 0.0):
+    picked_nodes, dropped_nodes = set(), set()
     weightSum = 0
     sorted_pred = torch.sort(pred, descending=True)
 
@@ -133,6 +142,14 @@ def GreedyScoresOriginal(pred, original_g, threshold = 0.5):
             picked_nodes.add(from_node)
             picked_nodes.add(to_node)
             picked_edges.add(sorted_i)
+        
+        if (sorted_pred.values[i] < dropThreshold):
+            picked_nodes.add(from_node)
+            picked_nodes.add(to_node)
+            picked_edges.add(sorted_i)
+            dropped_nodes.add(from_node)
+            dropped_nodes.add(to_node)
+
     
-    return weightSum, picked_edges, picked_nodes
+    return weightSum, picked_edges, picked_nodes, dropped_nodes
 

@@ -2,6 +2,7 @@ import torch
 from torch_geometric.transforms import NormalizeFeatures, ToUndirected, to_undirected
 from torch_geometric.datasets import GNNBenchmarkDataset, KarateClub, TUDataset
 from torch_geometric.data import Data
+from torch.utils.data import TensorDataset
 from torch.nn.functional import normalize
 from blossom import maxWeightMatching
 import LineGraphConverter as lgc
@@ -10,13 +11,22 @@ import numpy as np
 import copy
 import ssgetpy as ss
 import os
+import GreedyPicker as gp
 from scipy.io import mmread
 import torch_geometric.transforms as T
-from scipy.io import mmread
 
 np.random.seed(123)
 torch.manual_seed(123)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
+def OverrideToGreedyBased(graphs):
+    
+    for g in graphs:
+        target = gp.GreedyMatchingTargets(g)
+        g.y = target
+    
+    return graphs
 
 def WeightsExperiment(graph):    
     graphOnes, graphOneTwos = copy.deepcopy(graph), copy.deepcopy(graph)
@@ -41,7 +51,7 @@ def WeightsExperiment(graph):
 def TransformData():
     return T.Compose([NormalizeFeatures(),ToUndirected()])
 
-def LoadTrain(datasetname='MNIST', skipLine=True, limit=0):
+def LoadTrain(datasetname='MNIST', skipLine=True, limit=0, doNormalize = False):
     if not os.path.exists('data/train/target_data.pkl'): LoadData(datasetname,limit)
     file_name = 'data/train/target_data.pkl'
     with open(file_name, 'rb') as file:
@@ -51,9 +61,9 @@ def LoadTrain(datasetname='MNIST', skipLine=True, limit=0):
     if limit == 0: limit = len(target)
     if limit > 0: target = target[:limit]   
     
-    dataset = GNNBenchmarkDataset('data', datasetname,  split="train", transform=TransformData())[:limit]
+    dataset = GNNBenchmarkDataset('data', datasetname, split="train", transform=TransformData())[:limit]
     
-    dataset = PreproccessOriginal(dataset,target,datasetname)
+    dataset = PreproccessOriginal(dataset,target,datasetname,doNormalize)
     
     converted_dataset = 0
     if not skipLine:
@@ -64,7 +74,7 @@ def LoadTrain(datasetname='MNIST', skipLine=True, limit=0):
             
     return dataset, converted_dataset, target
 
-def LoadVal(datasetname='MNIST', skipLine=True, limit=0):
+def LoadVal(datasetname='MNIST', skipLine=True, limit=0, doNormalize = False):
     if not os.path.exists('data/val/target_data.pkl'): LoadData(datasetname)
     file_name = 'data/val/target_data.pkl'
     with open(file_name, 'rb') as file:
@@ -75,7 +85,8 @@ def LoadVal(datasetname='MNIST', skipLine=True, limit=0):
     if limit > 0: target = target[:limit]       
     
     dataset = GNNBenchmarkDataset('data', datasetname, split="val", transform=TransformData())[:limit] 
-    dataset = PreproccessOriginal(dataset,target,datasetname)
+    
+    dataset = PreproccessOriginal(dataset,target,datasetname,True,doNormalize)
     
     converted_dataset = 0
     if not skipLine:
@@ -86,7 +97,7 @@ def LoadVal(datasetname='MNIST', skipLine=True, limit=0):
     
     return dataset, converted_dataset, target
 
-def LoadTest(datasetname='MNIST', limit=0, skipLine=True):
+def LoadTest(datasetname='MNIST', limit=0, skipLine=True, doNormalize = False):
     if not os.path.exists('data/test/target_data.pkl'): LoadData(datasetname)
     file_name = 'data/test/target_data.pkl'
     with open(file_name, 'rb') as file:
@@ -97,7 +108,7 @@ def LoadTest(datasetname='MNIST', limit=0, skipLine=True):
     if limit > 0: target = target[:limit]    
     
     dataset = GNNBenchmarkDataset('data', datasetname, split="test", transform=TransformData())[:limit]
-    dataset = PreproccessOriginal(dataset,target,datasetname)
+    dataset = PreproccessOriginal(dataset,target,datasetname,doNormalize)
     
     converted_dataset = []
     if not skipLine:
@@ -144,24 +155,30 @@ def SaveTest(test_target, test_converted):
         print(f'Object successfully saved to "{file_name}"')
     return 
 
-def PreproccessOriginal(dataset, target, datasetname, undirected = True ):
+def PreproccessOriginal(dataset, target, datasetname, undirected = True, doNormalize = False):
     print("Proccessing data")
+    
     mydataset = []
     for i, dataitem in enumerate(dataset):                 
+        
         if datasetname=='MNIST': 
-            dataitem.edge_weight = torch.reshape(dataitem.edge_attr, 
-                                               (len(dataitem.edge_attr), 1))
+            wmax = torch.max(dataitem.edge_attr, dim=0).values
+            dataitem.edge_attr = dataitem.edge_attr / wmax
+            dataitem.edge_attr = dataitem.edge_attr.to(device)
+            dataitem.edge_weight = torch.reshape(dataitem.edge_attr, (len(dataitem.edge_attr), 1))
+            dataitem.edge_weight = dataitem.edge_weight.to(device)
         dataitem.x = lgc.AugmentOriginalNodeFeatures(dataitem, undirected = undirected)
         dataitem.y = target[i]
-
         mydataset.append(dataitem)
     return mydataset
 
-def ProccessData(dataset, datasetname, undirected = True):
+def ProccessData(dataset, datasetname, undirected = True, skipLine = False):
     mydataset = []
     print("Proccessing graphs, total = ", len(dataset))
     for i, dataitem in enumerate(dataset): 
         if datasetname=='MNIST': 
+            wmax = torch.max(dataitem.edge_attr, dim=0).values
+            dataitem.edge_attr = dataitem.edge_attr / wmax
             dataitem.edge_weight = torch.reshape(dataitem.edge_attr, 
                                                  (len(dataitem.edge_attr), 1))        
         dataitem.x = lgc.AugmentOriginalNodeFeatures(dataitem, undirected = undirected)
@@ -173,7 +190,7 @@ def ProccessData(dataset, datasetname, undirected = True):
 
     target = []
     converted = []
-    
+    original = []
     print("Blossom matching and line graph convertion")
     for idx, dataitem in enumerate(dataset):
         blossominput, uniqueEdges = [], set()
@@ -184,11 +201,18 @@ def ProccessData(dataset, datasetname, undirected = True):
                 blossominput.append((f,t,w))
                 uniqueEdges.add((f,t))
                 uniqueEdges.add((t,f))
-
-        targetClasses = AssignTargetClasses(dataitem, maxWeightMatching(blossominput))
+        try:
+            targetClasses = AssignTargetClasses(dataitem, maxWeightMatching(blossominput))
+        except: 
+            print("blossom failed skipping")
+            continue
         target.append(targetClasses)
-        original[idx].y = targetClasses
-        line_graph = lgc.ToLineGraph(dataitem, verbose = False)
+        dataitem.y = targetClasses
+        original.append(dataitem)
+        #original[idx].y = targetClasses
+        line_graph = 0
+        if not skipLine: 
+            line_graph = lgc.ToLineGraph(dataitem, verbose = False)
         converted.append(line_graph) 
         if (idx + 1) % 10 == 0: print(f'graph{idx+1}/{len(dataset)}')                   
     
@@ -231,35 +255,56 @@ def LoadDataCustom(limit=0):
     with open(file_name, 'rb') as file:
         print(file_name, " loaded")
         filenames = pickle.load(file)
-    
     if limit == 0: limit = len(filenames)     
     print("LOADING AND PROCCESSING DATA")
-    dataset = []
+    data = []
+    count = 0
     for filename in filenames[:limit]:
-        print("Reading ", filename)
         mmformat = mmread(f'data/custom/{filename}/{filename}.mtx').toarray()
-        graph = FromMMformat(mmformat)
-        if graph is None: continue
-        dataset.append(graph)
+        
+        file_name = f'data/customtrain/weights/{filename}.pkl'
+        with open(file_name, 'rb') as file:
+            print(file_name, " loaded")
+            ws = pickle.load(file)
+        
+        graph = FromMMformat(mmformat, ws)
+        
+
+        data.append(graph)
+        count += 1
+        if (count) % 10 == 0: print(f'graph{count}/{len(filenames[:limit])}')
+        
     
     if os.path.exists('data/customtrain/target_data.pkl'):
         file_name = 'data/customtrain/target_data.pkl'
         with open(file_name, 'rb') as file:
             print(file_name, " loaded")
-            target = pickle.load(file)
+            targetset = pickle.load(file)
         file_name = 'data/customtrain/converted_dataset.pkl'
         with open(file_name, 'rb') as file:
             print(file_name, " loaded")
-            converted = pickle.load(file)
-        dataset = PreproccessOriginal(dataset, target, "custom")     
+            convertedset = pickle.load(file)
+        
+        target, converted, dataset = [],[],[]
+        for i, g in enumerate(data):
+              if g is not None:
+                  target.append(targetset[i])
+                  #converted.append(convertedset[i])
+                  dataset.append(data[i])
+        dataset = PreproccessOriginal(dataset, target,  "custom", undirected = True, doNormalize=False)     
         print("DONE")
+        assert(len(dataset)==len(target))
+        for i, d in enumerate(dataset):
+            assert(len(d.y) == len(target[i]))
+        
         return dataset, converted, target
     
-    dataset, converted, target = ProccessData(dataset, "custom")     
+    dataset, converted, target = ProccessData(data, "custom", undirected = True, skipLine=True)     
     SaveCustom(target, converted)
+    assert(len(dataset)==len(target))
     print("DONE AND SAVED")
     
-    return dataset, converted, target
+    return dataset,converted,target
 
 
 def SaveCustom(test_target, test_converted):                   
@@ -324,12 +369,12 @@ def VisualizeOriginal(graph):
             s += f'{from_node} {to_node} {w}\n'
         file.writelines(s)
         
-def FromMMformat(graph):
+def FromMMformat(graph, ws = None):
     original_graph = Data()
     from_nodes, to_nodes, new_weights = [],[],[]
     j, count = 0, 0
     nodeMap = dict()
-    
+
     for row in range(len(graph)-1):    
         for col in range(j):
             w = graph[row][col]
@@ -346,8 +391,7 @@ def FromMMformat(graph):
             else: 
                 to_nodes.append(count)
                 nodeMap[col] = count
-                count+=1
-                
+                count+=1 
             new_weights.append(graph[row][col])             
         if j < len(graph[0]): j += 1    
     
@@ -356,12 +400,24 @@ def FromMMformat(graph):
     dir1 = torch.Tensor([from_nodes,to_nodes]).type(torch.int64)
     dir2 = torch.Tensor([to_nodes,from_nodes]).type(torch.int64)
     original_graph.edge_index = torch.cat((dir1, dir2),1)
-    new_weights = torch.Tensor(new_weights).flatten()
-    wmin = torch.min(new_weights, dim=0).values
-    new_weights -= wmin
-    new_weights = normalize(new_weights, p=1.0, dim = 0)
-    new_weights = torch.cat((new_weights, new_weights),0)
-    original_graph.edge_attr = new_weights 
+    
+    if ws is None:
+        new_weights = torch.Tensor(new_weights).flatten()
+        wmin = torch.min(new_weights, dim=0).values
+        wmax = torch.max(new_weights, dim=0).values
+        if wmin < 0: new_weights -= (wmin-1)
+        wmax = torch.max(new_weights, dim=0).values
+        if wmin == wmax: 
+            print("Assigning random weights")
+            new_weights = torch.rand((len(new_weights),1))
+        new_weights = new_weights / wmax
+        #new_weights = new_weights * 10
+        new_weights = torch.cat((new_weights, new_weights),0)
+    else: 
+        print("Loading existing weights")
+        new_weights = ws  / 10
+    
+    original_graph.edge_attr = new_weights.flatten()
     new_weights = torch.reshape(new_weights, (len(new_weights),1))
     original_graph.edge_weight = new_weights 
     original_graph.num_nodes = count

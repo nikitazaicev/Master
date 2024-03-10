@@ -1,0 +1,33 @@
+\chapter{Background}
+\label{sec:background}
+
+This chapter explains all the relevant concepts, technologies and problems relevant to this project.
+
+\section{Neural Networks and Machine Learning}
+
+Machine learning in computer science is a broad term for all the algorithms that use statistical methods to learn patterns and make predictions. Some of the earliest algorithms were invented already in the 1940s \cite{mlhist}, but it is notably in recent times, with increasing computational power of the computers and GPU's, that machine learning and especially neural networks have shown impressive results in a variety of fields such as recognition and generation of images, videos, sound and text (references?). 
+
+Machine learning can be further split into supervised and unsupervised learning. Supervised learning means the model is given correct answers it can learn from by trial and error and then apply gained knowledge on the unseen data. The other option is unsupervised learning where the model usually has some formula it can use to calculate how far it is from the set goal. In this case we will be trying supervised learning where we solve \gls{mwm} problems and use them to train the model.
+
+Neural networks are a subclass of machine learning algorithms that are inspired by the human brain. They are for the most part made of different layers that consist of "neurons". Layers can be grouped in 3 types: an input layer that reads the given data, one or more middle layers that proccess the data and output layer that give the final answer. Each neuron in a layer is usually connected to all the neurons of the next layer, although it may depend on the architecture. Between connected neurons there are weights. When the neural network model recieves input, it is passed through the layers and gets recalculated using the weights. The result at the output layer is some altered numerical representation of the input that can, depending on the goal, be interpreted as some prediction, for example a probability. The weights of neural network can then be adjusted depending on the accuracy of the prediction. After the adjustment is done model can try to make a prediction again. This process can be repeated multiple times, until the model can make predictions well enough. This process is called training. An important thing to keep in mind is that a trained model needs to be tested on unseen data since it could have just memorized all the data it was trained on to make predictions. In machine learning one is interested in generalization, the model needs to find some patterns that are common for all the relevant data it can encounter.
+
+\section{Graph Neural Networks}
+
+\gls{gnn} is a relatively young subclass of neural networks designed specifically for solving graph related problems and it has been a growing topic of research in the last couple of years.
+
+Lorenzo Brusca and Lars C. P. M. Quaedvlieg et al. \cite{brusca2023maximum} showed a self-training \gls{gnn} for \gls{mis}. 
+
+Schuetz et. al. made an unsupervised \gls{gnn} \cite{Schuetz2022} for solving \gls{mis} and Angelini and Ricci-Tersenghi \cite{Angelini2022} compared  its performance to greedy algorithms and reported some problems with \gls{gnn}s performance.
+
+The reason \gls{mis} solving is mentioned so much here is because the problems are to some degree related, as algorithmic problems often are. There will be concrete examples in the Methodology and Data chapter. \gls{mis} is also more often a subject to research and researches on \gls{mwm} are not that common. Bohao Wu and Lingli Li tried to solve \gls{mwm} using deep reinforcement learning \cite{WU2022400} and reported that "Experimental results show that L2M outperforms state-of-the-art algorithms."
+
+\gls{gnn}s are based on the same concepts as the neural networks, but with some modifications to better suit graph related problems. Opposite to the more standart neural networks, \gls{gnn} makes a representation of each node based on its neighbours. Adding more layers increases the depth of neighbourhood used. Meaning if a model has 2 layers the representation of one node would be calculated from nodes neighbours and the neighbours of the neighbours. This allows the \gls{gnn} to utilize graph structure unlike a standart neural network.
+
+\section{Maximum Weighted Matching and Combinatorial Optimization}
+
+Combinatorial optimization is a field of study that covers problems that require finding a subset or a combination from some set of elements, that fulfills certain requirements. An example of such problem would be Maximum Weighted Matching and Maximum Independent Set. 
+
+\gls{mwm} problem asks to find a subset of node pairs in a weighted graph, such that sum of weights is maximized. The problem is relatively simple compared to many others is the field of \gls{co} and has optimal algorithms that run in polynomial time such as blossom algorithm \cite{blossom}. Optimal algorithms however can still be rather slow when working with large datasets, and in some cases approximation algorithm may be more of a suitable solution if the exact answer is not critically important. The most simple example is a greedy algorithm that sorts all the edges by their weight and picks them in descending order.
+
+The \gls{mis} asks to find a subset of non-adjecent nodes such that the total amount of nodes is as large as possible. There is a similar problem \gls{mwis} which asks to find an independent set that gives the largest total weight sum. \gls{mwis} is partially relevant as we will later try a graph transformation that essentialy turn the original \gls{mwm} problem into \gls{mwis}.
+

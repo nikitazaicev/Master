@@ -7,6 +7,8 @@ import GreedyPicker as gp
 import time
 import LineGraphConverter as lgc
 import ReductionsManager as rm
+from torch.nn.functional import normalize
+from scipy.io import mmread
 
 torch.manual_seed(123)
 random.seed(123)
@@ -14,63 +16,114 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Current CUDA version: ", torch.version.cuda, "\n")
 
 try:
+    #with open('data/MNISTTRAINED/MyModel.pkl', 'rb') as file:
+    #with open('data/CUSTOMTRAINED/MyModel.pkl', 'rb') as file:
     with open('data/MyModel.pkl', 'rb') as file:
         print("Loading Model")
         model = pickle.load(file).to(device)
+    #with open('data/MNIST/MyModel.pkl', 'rb') as file:
+    #with open('data/CUSTOM/MyModel.pkl', 'rb') as file:
     with open('data/MyModelClass.pkl', 'rb') as file:
         classifier = pickle.load(file).to(device) 
         modelLoaded = True
 except Exception: print("No model found. EXIT")
+model.eval()
+classifier.eval()
 
+graphs, converted_dataset, target = dl.LoadVal(limit=1, doNormalize=False)
 
-#graphs, converted_dataset, target = dl.LoadTest(limit=10)
-graphs, converted_dataset, target = dl.LoadDataCustom(limit=10)
+#graphs, converted_dataset, target = dl.LoadDataCustom(limit=10)
 
+# graphs, filename = [], "data/Pajek/GD98b/GD98b.mtx"
+# print("Reading ", filename)
+# mmformat = mmread(f'data/custom/GD98_b/GD98_b.mtx').toarray()
+
+# graph = dl.FromMMformat(mmformat)
+# randWeights = torch.rand(((int(len(graph.edge_attr)/2))))
+# graph.edge_attr = torch.cat((randWeights, randWeights))
+# graph.edge_weight = torch.reshape(graph.edge_attr,((len(graph.edge_attr),1)))
+# graphs.append(graph)
+# graphs, converted, target = dl.ProccessData(graphs , "custom", skipLine=True)  
 
 print("Total graphs = ", len(graphs))
 print("----------------")
 
-resultsGNN = []
-resultsGreedy = []
+resultsGNN, resultsGreedy, resultsOpt = [], [], []
+useReduction = False
 
 for idx, graph in enumerate(graphs):
     
-    weightSum = 0
-    #graph, weightRed = rm.ApplyReductionRules(graph)
-    #weightSum += weightRed
+    #graph.edge_weight = normalize(graph.edge_weight, p=1.0, dim = 0)
+    weightSum, weightRed = 0, 0
+    if useReduction:
+        print("Before reduction = ", graph.num_nodes)
+        graph, weightRed = rm.ApplyReductionRules(graph)
+        weightSum += weightRed
+        print("After reduction = ", graph.num_nodes, weightRed)
+    
+    true_edges_idx = (graph.y == 1).nonzero(as_tuple=True)[0]    
+    
+    totalWeightOpt, duplicates = 0, set()
+    start_time = time.time()
+    for idx in true_edges_idx:
+        from_node = graph.edge_index[0][idx].item()
+        to_node = graph.edge_index[1][idx].item()
+        if (from_node,to_node) in duplicates or (to_node,from_node) in duplicates: continue
+        duplicates.add((from_node,to_node))
+        duplicates.add((to_node,from_node))
+        #totalWeightOpt += graph.edge_attr[idx].item() + weightRed  
+        totalWeightOpt += graph.edge_weight[idx][0].item() + weightRed  
+    timeTotal = time.time() - start_time
+    resultsOpt.append([("TIME", timeTotal),("WEIGHT", totalWeightOpt)])
+        
     start_time = time.time()
     weightGreedy, pickedEdgeIndeces = gp.GreedyMatchingOrig(graph)
+
+    weightGreedy += weightRed 
     timeTotal = time.time() - start_time
     resultsGreedy.append([("TIME", timeTotal),("WEIGHT", weightGreedy)])
     
-    graph = graph.to(device)
     start_time = time.time()
-    graph.x = lgc.AugmentOriginalNodeFeatures(graph)
-    graph, weightGnn = MyGCN.GNNMatching(model, classifier, graph.to(device))
+    #graph.x = lgc.AugmentOriginalNodeFeatures(graph)
+    graph = graph.to(device)
+    graph, weightGnn, ignore = MyGCN.GNNMatching(model, classifier, graph, 0.7, 0.0, verbose=False)
     weightRes, pickedEdgeIndeces = gp.GreedyMatchingOrig(graph)
+
     weightSum += weightGnn
     weightSum += weightRes
-    weightResDif = weightRes/weightSum 
+    weightResDif = weightRes/weightSum
+
     timeTotal = time.time() - start_time
-    resultsGNN.append([("TIME", timeTotal),("WEIGHT", weightSum.item()),("Gnn Res weight Diff", weightResDif.item())])
+    resultsGNN.append([("TIME", timeTotal),("WEIGHT", weightSum),("Gnn Res weight Diff", weightResDif)])
     
-avgTimeGnn, avgWeightGnn, avgTimeGreed, avgWeightGreed, GnnResDif = 0,0,0,0,0
+avgTimeGnn, avgWeightGnn, avgTimeGreed, avgWeightGreed, GnnResDif, weightResDif = 0,0,0,0,0,0
+avgTimeOpt, avgWeightOpt = 0,0
 for idx, r in enumerate(resultsGNN):
-    #print("GNN = ", resultsGNN[idx])
-    #print("GREED = ", resultsGreedy[idx])
-    #print("----------------")
     avgTimeGnn += resultsGNN[idx][0][1]
     avgWeightGnn += resultsGNN[idx][1][1]
     avgTimeGreed += resultsGreedy[idx][0][1]
     avgWeightGreed += resultsGreedy[idx][1][1]
+    avgTimeOpt += resultsOpt[idx][0][1]
+    avgWeightOpt += resultsOpt[idx][1][1]
     weightResDif += resultsGNN[idx][2][1]
-    
-    
-print("GNN AVG Time = ", avgTimeGnn/len(resultsGNN))
-print("GREED AVG Time = ", avgTimeGreed/len(resultsGNN))
 
-print("GNN AVG Weight = ", avgWeightGnn/len(resultsGNN))
+
+print("-----------------------------------------------")    
+
+print("OPT AVG Time = ", avgTimeOpt/len(resultsGNN))
+print("OPT AVG Weight = ", avgWeightOpt/len(resultsGNN))    
+
+print("-----------------------------------------------")    
+
+print("GNN AVG Time = ", avgTimeGnn/len(resultsGNN))
+print("GNN AVG Weight = ", (avgWeightGnn/len(resultsGNN)))
+   
+print("-----------------------------------------------")
+
+print("GREED AVG Time = ", avgTimeGreed/len(resultsGNN))
 print("GREED AVG Weight = ", avgWeightGreed/len(resultsGNN))
+   
+print("-----------------------------------------------")
 
 print("weightResDif = ", (weightResDif/len(resultsGNN)))
 

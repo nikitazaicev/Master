@@ -4,6 +4,7 @@ from torch_geometric.nn import GCNConv, Linear, SAGEConv
 from torch_geometric.utils import negative_sampling
 import GreedyPicker as gp
 import ReductionsManager as rm
+from torch.nn.functional import normalize
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -62,10 +63,7 @@ class EdgeClassifier(torch.nn.Module):
         x = F.relu(x)
         
         x = self.lin2(x)
-
         return F.log_softmax(x, dim=1)
-    
-    
     
 class MyGCNEdge(torch.nn.Module):
     def __init__(self):
@@ -77,10 +75,9 @@ class MyGCNEdge(torch.nn.Module):
 
     def forward(self, data):        
         x, edge_index, edge_weight = data.x, data.edge_index, data.edge_weight
-        
+
         x = self.conv1(x, edge_index, edge_weight)
         identity = F.relu(x)
-
         x = self.conv2(identity, edge_index, edge_weight)
         x = F.relu(x)
         
@@ -96,7 +93,7 @@ class MySAGEEdge(torch.nn.Module):
         self.conv1 = SAGEConv(7, 640)
         self.conv2 = SAGEConv(640, 640)
         # self.conv3 = SAGEConv(640, 640, aggr="max")
-        self.embed = Linear(1280, 80)
+        self.embed = Linear(640, 80)
 
     def forward(self, data):        
         x, edge_index, edge_weight = data.x, data.edge_index, data.edge_weight
@@ -110,31 +107,35 @@ class MySAGEEdge(torch.nn.Module):
         # x = self.conv3(x, edge_index)
         # x = F.relu(x)
 
-        x = torch.cat((x,identity),1)
+        #x = torch.cat((x,identity),1)
         x = self.embed(x)
         return x
     
-def GNNMatching(gnn, classifier, graph, verbose = False):
-    picked_edges = set()
-    picked_nodes = set()
+def GNNMatching(gnn, classifier, graph, tresholdP = 0.5, tresholdN = 0.0, verbose = False):
+    picked_edges, picked_nodes, droppedNodes = set(), set(), set()
     weightSum = 0
     step = 1
+
     while (graph.num_nodes-2*len(picked_edges)) > 2:
         if verbose: print("Step - ", step)
+    
         
         out = gnn(graph)
         out = classifier(classifier.embedEdges(out,graph))  
         pred = torch.exp(out)
-              
+        
         scores = []
         for p in pred:
             if p[0] > p[1]: scores.append(0.0)
             else: scores.append(p[1])      
         scores = torch.FloatTensor(scores)
+        
 
+        #print(torch.max(scores))
+        
         #weight, originalEdgeIds, pickedEdges = gp.GreedyScores(scores, val_graph, val_original_copy)
-        weight, originalEdgeIds, picked_nodes = gp.GreedyScoresOriginal(scores, graph)
-
+        weight, originalEdgeIds, picked_nodes, dropNodes = gp.GreedyScoresOriginal(scores, graph, tresholdP, tresholdN)
+        droppedNodes.update(dropNodes)
         pickedEdges = len(originalEdgeIds)
         
         weightSum += weight
@@ -148,7 +149,7 @@ def GNNMatching(gnn, classifier, graph, verbose = False):
         if verbose: print("Total nodes in converted graph remains = ", len(graph.x))
         if graph.num_nodes <= 0: break    
         step += 1
-    return graph, weightSum
+    return graph, weightSum, droppedNodes
     
     
     
