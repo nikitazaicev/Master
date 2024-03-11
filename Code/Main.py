@@ -60,7 +60,7 @@ except Exception: print("No model found, training new model")
 torch.manual_seed(123)
 
 #loader = DataLoader(lineGraphs, batch_size=1, shuffle=True)
-loader = DataLoader(graphs, batch_size=30, shuffle=False)
+loader = DataLoader(graphs, batch_size=20, shuffle=False)
 optimizer = torch.optim.Adam(list(model.parameters()) + list(classifier.parameters()), lr=0.0005)#, weight_decay=0.0001)
 classWeights = torch.FloatTensor([0.1,0.9]).to(device)
 criterion = torch.nn.CrossEntropyLoss(weight=classWeights)

@@ -27,9 +27,9 @@ During the experiments following hyperparameters were tested:
 
 \item Additionally other methods were tried such as augmenting data (adding extra features to the nodes during preproccessing): 
 	\begin{enumerate}
-	\item Degree - how many neighbors a node has
-	\item Weight relative to the sum of neighbors.
-	\item Weight difference from the sum of the neighbors.
+	\item Degree - how many neighbours a node has
+	\item Weight relative to the sum of neighbours.
+	\item Weight difference from the sum of the neighbours.
 	\item Sums of the weights. 
 	\item 1st largest weight, 2nd largest weight.
 	\end{enumerate}
@@ -41,9 +41,11 @@ During the experiments following hyperparameters were tested:
 The model should be capable of solving any graph relevant to \gls{mwm} problem. A relevant graph can be difined by following characterisitcs
 Ideally the model should be able to handle any kind of an udirected graph with weighted edges.
 
-For training and experimenting with the \gls{gnn}, a MNIST dataset was used \cite{dwivedi2022benchmarking}. The dataset consists of 70000 relatively small graphs with 70 nodes and 564 edges on average. Graphs also include features for the edges representing distances between node. Theese features is what is used as the weights for the problem. Although the graphs in this dataset are realatively small they have some fitting qualities such and nodes having many neighbors creating more possible ways to match the nodes. Small size also makes it less time consuming to train the models and try different approaches as well as shows whether a \gls{gnn} trained on smaller graphs can transfer its knowledge to larger graphs.
+For training and experimenting with the \gls{gnn}, a MNIST dataset was used \cite{dwivedi2022benchmarking}. The dataset consists of 70000 relatively small graphs with 70 nodes and 564 edges on average. Graphs also include features for the edges representing distances between node. Theese features is what is used as the weights for the problem. Although the graphs in this dataset are relatively small they have some fitting qualities such and nodes having many neighbors creating more possible ways to match the nodes. Small size also makes it less time consuming to train the models and try different approaches as well as shows whether a \gls{gnn} trained on smaller graphs can transfer its knowledge to larger graphs.
 
-A couple large graphs from SuiteSparse were chosen for testing performance on large graphs.
+Only training and testing on MNIST graphs does not represent all the different graphs that can occur, therefore model had to be tested on other graphs that have different structures and weight distributions. Model trained exclusively on MNIST dataset did not perform well on other graphs as one might ha expected. Therefore another dataset was made to cover larger variety of graphs. The dataset was a collection of random graphs from SuitSparse database that ranged between 100 and 10000 nodes. As described in more details in the \hyperref[sec:preprocessing]{Data preprocessing section}, some of the found graphs did not have edge weights. In these cases random weights were generated.
+
+Including truly large graphs in training caused problems with insufficient memory and too long training time, but final model was still tested on some larger graphs than used in training. A couple large graphs from SuiteSparse were chosen for testing performance on large graphs with 40000 nodes and higher.
 
 Small handcrafted graphs were used to test if \gls{gnn} can at least beat the cases specificaly made to abuse weaknesses of a greedy approach.
 
@@ -53,7 +55,9 @@ During the experiments the architecture of the \gls{gnn} model itself had mostly
 
 \subsection{Model pipeline}
 
-About multiple iterations of passing graph through the model if not the whole graph is matched and cleaning the remainder using normal greedy.
+As mentioned before one cannot fully trust the model to satisfy the restrictions of the problem. What is meant by the restrictions of the probem is the fact that every node can only be matched once. This is controlled by sorting the probabilities the model's outputs in descending order and adding matches to the final solution one by one, skipping matches that already have matched nodes. Another potential problem can happen at the end when some of the nodes that can be matched were not matched at all by the model. There is a chance of that happening, since only pick the matches with high enough probability are used. As a starting point probability threshold is 50\% and above. Two things are done to ensure nothing is left to waste. First, after the model is done the potential remainder of the graph is fed to the model again. For model this would essentialy just be a new graph and it may happen that model manages to match the remainder given the new context. This process can be repeated several times and the break condition is if 0 matches were made in the last iteration. At that point if anything is left, which hopefully is a small fraction of the initial graph, can be solved using standard greedy or any other approximation algorithm for that matter.
+
+Passing the graph and it's consecutive remainders multiple times through the model can also be helpfull to deal with the case where one of the matches that was picked may play big role in how the rest of the solution will look like. Idealy to handle this case one might only pick one match at the time and pass the graph through the model again, but it will be too time consuming.
 
 \subsection{Line Graph Approach}
 
@@ -67,19 +71,25 @@ Examaple of a graph and its line graph convertion
     \label{Line graph figure}
 \end{figure}
 
-Converting to a line graph makes the architecture of the \gls{gnn} model simpler. Instead of needing to ask model for each pair of nodes is they should be matched together, the line graph model now can output the probability of a node being in the matching directly, since the node now represents two connected nodes from original graph. This also however transforms the problem itself. From the perspective og the model it is now trying to solve \gls{mwis}. \gls{gnn}s for \gls{mis} have been studied before. Nouranizadeh et. al. showed demonstrated a pooling method for solving \gls{mwis} \cite{DBLPjournals/corr/abs-2107-01410}.
+Converting to a line graph makes the architecture of the \gls{gnn} model simpler. Instead of needing to ask model for each pair of nodes is they should be matched together, the line graph model now can output the probability of a node being in the matching directly, since the node now represents two connected nodes from original graph. This also however transforms the problem itself. From the perspective og the model it is now trying to solve \gls{mwis}. \gls{gnn}s for \gls{mis} have been studied before. Nouranizadeh et. al. showed demonstrated a pooling method for solving \gls{mwis} \cite{DBLPjournals/corr/abs-2107-01410}. Unfortunately the large graphs can explode in size when converted to line graphs and were too time consuming in such cases.
 
 \subsection{Edge Classification Approach}
 
-A more natural way of approaching this problem is for each pair of vertices that are conneced by an edge, ask the model if given pair should be a part of the matching. In other words model is classifying an edge. 
+A more natural way of approaching this problem is to give the model original graphs instead of transforming them to line graphs. But the model itselv only returns some numerical representation on the nodes in the graph. To get the predictions for the edges one can add a classifier module to the existing \gls{gnn}. This module's purpuse is to predict if a pair of two nodes will be in the matching. So the first part of the model produces embedding for each node and then for each edge, embeddings of both nodes are put together and passed to the classifier. Resulting in the model output being probabilities of all the edges being in the matching.
 
-\subsection{Data preproccessing}
-
+\subsection{Data preprocessing}
+\label{sec:preprocessing}
 Not all graphs found in the database are fit for the training as is, and the ones that fit perfectly are few. Machine learning models require some preproccessing of data before it can be used. Convertion to the line graph is one example of such preproccessing. One might also need to augment the initial data to improve model performance. Finally machine learning models can be vulnerable to large numerical swings in the data, such as edge weights being higher than expected.
 
 Most important are the edge weights. To ensure we have enough graphs to train on and the graphs cover a variety of structures, some of the chosen graphs that lacked weights recieved a randomly generated weights. The random weights had even distribution in the range between 0 and 1. All the graphs with preexisting weights were also adjusted to be in that range by shifting the weights to positive range if any negative weights were detected and then dividing by the largest weight. The weights could have been in any range, but the important thing is to have consistent weights for all the graphs. 
 
 Another preprocessing step that was added is additional features for the nodes. This required different approaches for line graph and edge prediction approaches.
+
+Common node features:
+
+Line garphs node features:
+
+Normal graph edge features:
 
 \section{Result Validation}
 
@@ -93,9 +103,7 @@ Before looking at the results it is important to decide how to evalueate results
 
 \subsection{Sanity checks}
 
-It can often happen that during the project something goes wrong with the model and it can be not obvious. Therefore, one often does what is called sanity checks to see if model's inputs and outputs still make sense. Following was done to ensure the model and data are functioning correctly:
-
-1. Train model on a small dataset a lot and test it on the same data. The model should be able to memorize theese graphs and solve the problem near perfect on them.
+It can often happen that during the project something goes wrong with the model and it can be not obvious. Therefore, one often does what is called sanity checks to see if model's inputs and outputs still make sense. To ensure the model and data are functioning correctly we trained a model on a small dataset for a long enough time and tested it on the same data. The model should be able to memorize theese graphs and solve the problem near perfect on them.
 
 \section{Expected Results}
 
