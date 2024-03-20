@@ -10,18 +10,18 @@ def PrintInfo(_data):
 def GenerateAdjList(graph):
     adjL = [set() for _ in range(graph.num_nodes)]
     for i in range(len(graph.edge_index[0])):
+        w = graph.edge_weight[i].item()
         from_node = graph.edge_index[0][i].item()
         to_node = graph.edge_index[1][i].item()
-        adjL[from_node].add(to_node)
-        adjL[to_node].add(from_node)
+        adjL[from_node].add((to_node,w))
+        adjL[to_node].add((from_node,w))
     return adjL
 
-def CountExtraFeatures(graph):
+def CountExtraFeatures(graph, adj):
     num_nodes = graph.num_nodes
     rels = [0.0] * num_nodes
     diffs = [0.0] * num_nodes
     maxs = [0.0] * num_nodes
-    adj = GenerateAdjList(graph)
     for i, neighbors in enumerate(adj):
         w = graph.node_features[i]
         neighborW = 0
@@ -35,7 +35,7 @@ def CountExtraFeatures(graph):
     maxs = torch.Tensor(maxs).unsqueeze(1)
     return torch.cat((rels, diffs, maxs), dim=-1)
 
-def CountExtraFeaturesOriginal(graph):
+def CountExtraFeaturesOriginal(graph, adj):
     num_nodes = graph.num_nodes
     rels = [0.0] * num_nodes
     diffs = [0.0] * num_nodes
@@ -59,13 +59,11 @@ def CountExtraFeaturesOriginal(graph):
             maxs2[to_node] = best
             maxs[to_node] = w 
 
-    
-    adj = GenerateAdjList(graph)
     for i, neighbors in enumerate(adj):
         neighborSums = 0
-        for n in neighbors:
+        for (n,w) in neighbors:
             neighborSums = neighborSums + sums[n]
-        diffs[i] = diffs[i] + (sums[i] - neighborSums)
+        diffs[i] = (sums[i] - neighborSums)
         if neighborSums > 0: rels[i] = sums[i]/neighborSums   
     
     rels = torch.Tensor(rels).unsqueeze(1)
@@ -76,8 +74,20 @@ def CountExtraFeaturesOriginal(graph):
 
     return torch.cat((rels, diffs, sums, maxs, maxs2), dim=-1)
 
+def UpdateExtraFeatures(graph, adj, removedNodeIds):
+    for nodeId in removedNodeIds:
+        for (n,w) in adj[nodeId]:
+            graph.x[n][4] -= w
+            graph.x[n][3] = graph.x[n][3] - w + graph.x[nodeId][4]   
+            neighborSums = 0
+            for (n2,w2) in adj[n]:
+                if n2 != nodeId: neighborSums += w2
+            if neighborSums > 0: graph.x[n][2] = graph.x[n][4] / neighborSums    
+            else: graph.x[n][2] = 0
+            adj[n].remove((nodeId,w))
+    return graph.x
 
-def CountDegree(graph, undirected = True):
+def CountDegree(graph, adj, undirected = True):
     edge_index = graph.edge_index
     num_nodes = graph.num_nodes
     deg = [0] * num_nodes
@@ -88,25 +98,39 @@ def CountDegree(graph, undirected = True):
         if not undirected: deg[to_node]+=1
     return torch.Tensor(deg).unsqueeze(1)
 
-def AugmentNodeFeatures(graph, undirected = True):
+def AugmentNodeFeatures(graph, adj, undirected = True):
     graph.x = graph.node_features.resize(len(graph.node_features),1)
     graph.node_features = graph.x 
     
-    degs = CountDegree(graph, undirected)
+    degs = CountDegree(graph, adj, undirected)
     graph.x = torch.cat((graph.x, degs), dim=-1)
-    feats = CountExtraFeatures(graph)
+    feats = CountExtraFeatures(graph, adj)
     graph.x = torch.cat((graph.x, feats), dim=-1)
     return graph.x
 
 def AugmentOriginalNodeFeatures(graph, undirected = True):
-    
+    adj = GenerateAdjList(graph)
     graph.x = torch.ones([graph.num_nodes,1])
     graph.node_features = graph.x
     
-    degs = CountDegree(graph, undirected)
+    degs = CountDegree(graph, adj, undirected)
     graph.x = torch.cat((graph.x, degs), dim=-1)
-    feats = CountExtraFeaturesOriginal(graph)
+    feats = CountExtraFeaturesOriginal(graph, adj)
     graph.x = torch.cat((graph.x, feats), dim=-1)
+    return graph.x, adj 
+
+def UpdateNodeFeatures(graph, adj, removedNodeIds):
+    
+    UpdateDegree(graph, adj, removedNodeIds)
+    UpdateExtraFeatures(graph, adj, removedNodeIds)
+    
+    return graph.x
+
+def UpdateDegree(graph, adj, removedNodeIds):
+    for nodeId in removedNodeIds:
+        for (neighbor,w) in adj[nodeId]:
+            graph.x[neighbor][1] -= 1    
+        
     return graph.x
 
 def RemoveDoubleEdges(graph):

@@ -1,6 +1,6 @@
 import pickle
 import MyGCN
-import DataLoader as dl
+import MyDataLoader as dl
 import torch
 import random
 import GreedyPicker as gp
@@ -18,19 +18,28 @@ print("Current CUDA version: ", torch.version.cuda, "\n")
 try:
     #with open('data/MNISTTRAINED/MyModel.pkl', 'rb') as file:
     #with open('data/CUSTOMTRAINED/MyModel.pkl', 'rb') as file:
-    with open('data/MyModel.pkl', 'rb') as file:
+    with open('data/tempMyModel.pkl', 'rb') as file:
         print("Loading Model")
         model = pickle.load(file).to(device)
-    #with open('data/MNIST/MyModel.pkl', 'rb') as file:
-    #with open('data/CUSTOM/MyModel.pkl', 'rb') as file:
-    with open('data/MyModelClass.pkl', 'rb') as file:
+    #with open('data/MNISTTRAINED/MyModelClass.pkl', 'rb') as file:
+    #with open('data/CUSTOMTRAINED/MyModelClass.pkl', 'rb') as file:
+    with open('data/tempMyModelClass.pkl', 'rb') as file:
         classifier = pickle.load(file).to(device) 
         modelLoaded = True
 except Exception: print("No model found. EXIT")
 model.eval()
 classifier.eval()
 
-graphs, converted_dataset, target = dl.LoadVal(limit=1, doNormalize=False)
+graphs, converted_dataset, target = dl.LoadVal(limit=10, doNormalize=False)
+
+
+# with open('data/OptGreedDiffDataPaths.pkl', 'rb') as file:
+#     goodcases = pickle.load(file)
+# paths = []
+# for item in goodcases: 
+#     print(item)
+#     paths.append(item)
+# graphs, converted_dataset, target = dl.LoadValGoodCase(paths[1:])
 
 #graphs, converted_dataset, target = dl.LoadDataCustom(limit=10)
 
@@ -53,7 +62,6 @@ useReduction = False
 
 for idx, graph in enumerate(graphs):
     
-    #graph.edge_weight = normalize(graph.edge_weight, p=1.0, dim = 0)
     weightSum, weightRed = 0, 0
     if useReduction:
         print("Before reduction = ", graph.num_nodes)
@@ -86,7 +94,8 @@ for idx, graph in enumerate(graphs):
     start_time = time.time()
     #graph.x = lgc.AugmentOriginalNodeFeatures(graph)
     graph = graph.to(device)
-    graph, weightGnn, ignore = MyGCN.GNNMatching(model, classifier, graph, 0.7, 0.0, verbose=False)
+    graph, weightGnn, ignore, steps = MyGCN.GNNMatching(model, classifier, graph, 0.50, 0.0, verbose=False)
+    print("gnn steps ", steps )
     weightRes, pickedEdgeIndeces = gp.GreedyMatchingOrig(graph)
 
     weightSum += weightGnn

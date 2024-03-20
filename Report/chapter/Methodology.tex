@@ -22,17 +22,21 @@ During the experiments following hyperparameters were tested:
 \begin{enumerate}
 \item Learning rate - by how much the weights of the model should be corrected
 \item Network depth and width - layers and neurons
-\item Class weights - how much should the model focus on a given class. Classes being: 0 = is NOT in the solution, 1 = is in the solution.
-\item Weight decay - used to keep weights values relatively small and decrease chances of the model memorizing the answers. 
+\item Class weights - how much should the model focus on a given class. Classes being: 
+	\begin{itemize}
+	\item 0 = is NOT in the solution.
+	\item 1 = is in the solution.
+	\end{itemize}	
+\item Weight decay - used to keep \gls{gnn} weight values relatively small and decrease chances of the model memorizing the answers. 
 
 \item Additionally other methods were tried such as augmenting data (adding extra features to the nodes during preproccessing): 
-	\begin{enumerate}
+	\begin{itemize}
 	\item Degree - how many neighbours a node has
 	\item Weight relative to the sum of neighbours.
 	\item Weight difference from the sum of the neighbours.
 	\item Sums of the weights. 
 	\item 1st largest weight, 2nd largest weight.
-	\end{enumerate}
+	\end{itemize}
 
 \end{enumerate}
 
@@ -50,8 +54,22 @@ Including truly large graphs in training caused problems with insufficient memor
 Small handcrafted graphs were used to test if \gls{gnn} can at least beat the cases specificaly made to abuse weaknesses of a greedy approach.
 
 \section{Architecture}
+\label{sec:architecture}
+During the experiments the architecture of the \gls{gnn} model itself had mostly minor changes, but 2 rather different graph preproccessing steps were tried. In both cases we use \gls{gcn} layers (GCNConv) \cite{gcnpaper}. The GCNConv layer fits well for the purpose of this task because it makes use of the edge weights that are the crucial part for solving \gls{mwm}.
 
-During the experiments the architecture of the \gls{gnn} model itself had mostly minor changes, but 2 rather different graph preproccessing steps were tried. First, let us go through the whole process of a graph being matched using the \gls{gnn} presented here.
+Python example:
+\begin{lstlisting}[language=Python]
+class MyGCN(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = GCNConv(5, 640) # 5 features per each node, initialy 1
+        self.conv2 = GCNConv(640, 640)
+        self.lin = Linear(640, 2) # 2 classes 
+\end{lstlisting}
+
+For training, Adam optimizer was used \cite{kingma2017adam}. Optimizer is used to adjust the weights of the network during training. Adam optimizer has several hyperparameters that can be usefull to achieve better results and is one of the popular optimizers to use.
+
+Now, let us go through the whole process of a graph being matched using the \gls{gnn} presented here.
 
 \subsection{Model pipeline}
 
@@ -77,19 +95,55 @@ Converting to a line graph makes the architecture of the \gls{gnn} model simpler
 
 A more natural way of approaching this problem is to give the model original graphs instead of transforming them to line graphs. But the model itselv only returns some numerical representation on the nodes in the graph. To get the predictions for the edges one can add a classifier module to the existing \gls{gnn}. This module's purpuse is to predict if a pair of two nodes will be in the matching. So the first part of the model produces embedding for each node and then for each edge, embeddings of both nodes are put together and passed to the classifier. Resulting in the model output being probabilities of all the edges being in the matching.
 
+Python example:
+
+\begin{lstlisting}[language=Python]
+
+class MyGCNEdge(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = GCNConv(7, 640)
+        self.conv2 = GCNConv(640, 640)
+        self.embed = Linear(1280, 80)
+
+class EdgeClassifier(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.lin1 = Linear(160, 320) # 80 * 2 features since input is 2 nodes.
+        self.lin2 = Linear(320, 2)
+
+    def embedEdges(self, nodeEmbed, graph):
+        x_src, x_dst = nodeEmbed[graph.edge_index[0]], nodeEmbed[graph.edge_index[1]]
+        edgeEmbed = torch.cat([x_src, x_dst], dim=-1)        
+        return edgeEmbed
+
+\end{lstlisting}
+
 \subsection{Data preprocessing}
 \label{sec:preprocessing}
 Not all graphs found in the database are fit for the training as is, and the ones that fit perfectly are few. Machine learning models require some preproccessing of data before it can be used. Convertion to the line graph is one example of such preproccessing. One might also need to augment the initial data to improve model performance. Finally machine learning models can be vulnerable to large numerical swings in the data, such as edge weights being higher than expected.
 
 Most important are the edge weights. To ensure we have enough graphs to train on and the graphs cover a variety of structures, some of the chosen graphs that lacked weights recieved a randomly generated weights. The random weights had even distribution in the range between 0 and 1. All the graphs with preexisting weights were also adjusted to be in that range by shifting the weights to positive range if any negative weights were detected and then dividing by the largest weight. The weights could have been in any range, but the important thing is to have consistent weights for all the graphs. 
 
-Another preprocessing step that was added is additional features for the nodes. This required different approaches for line graph and edge prediction approaches.
+Another preprocessing step that was added is additional features for the nodes/vertices. This required different approaches for line graph and edge prediction approaches since in a line graph vertex represents an edge from the original graph. Line graph has weights assigned to the nodes themselves while using original graph nodes are assigned to edges.
 
-Common node features:
+One vertex feature does reamain in common: Degree of the nodes. Meaning how many neighbors each node has.
 
-Line garphs node features:
+Line garphs node features:  
 
-Normal graph edge features:
+\begin{enumerate}
+\item Weight relative to the sum of neighbours. For each vertex v:  \[ Wrel = v.weight  \div  (\sum_{n=0}^{|neighbors|} neighbors[n].weight) \]
+\item Weight difference from the sum of the neighbours. For each vertex v:  \[ Wdiff = v.weight  \div  (\sum_{n=0}^{|neighbors|} neighbors[n].weight) \]
+\item Sums of the neighbouring node weights. \[ (\sum_{n=0}^{|neighbors|} neighbors[n].weight) \]
+\end{enumerate}
+
+Normal graph edge features. Here some adjustments are made since nodes do not have any weights assigned unlike line graph.
+
+\begin{enumerate}
+\item Sum of the weights of all the outgoing edges.  \[ Wsum = (\sum_{i=0}^{|edges|} edges[i].weight) \]
+\item Wsum relative to the Wsum of neighbours. For each vertex v:  \[ Wrel = Wsum \div (\sum_{n=0}^{|neighbors|} neighbors[n].Wsum) \]
+\item Wsum difference from the Wsum of the neighbours. For each vertex v: \[ Wdiff = Wsum \div (\sum_{n=0}^{|neighbors|} neighbors[n].Wsum) \]
+\end{enumerate}
 
 \section{Result Validation}
 
@@ -103,7 +157,17 @@ Before looking at the results it is important to decide how to evalueate results
 
 \subsection{Sanity checks}
 
-It can often happen that during the project something goes wrong with the model and it can be not obvious. Therefore, one often does what is called sanity checks to see if model's inputs and outputs still make sense. To ensure the model and data are functioning correctly we trained a model on a small dataset for a long enough time and tested it on the same data. The model should be able to memorize theese graphs and solve the problem near perfect on them.
+It can often happen that during the project something goes wrong with the model and it can be not obvious. Therefore, one often does what is called sanity checks to see if model's inputs and outputs still make sense. 
+
+Following "sanity checks" were done:
+	\begin{enumerate}
+
+\item To ensure the model and data are functioning correctly we trained a model on a small dataset for a long enough time and tested it on the same data. The model should be able to memorize theese graphs and solve the problem near perfect on them.
+
+\item Comparisons to random matching were done. Before the training the model has random weights and essentialy will behave as if it is picking edges at random, but after training the model was performing better than a random matching.
+
+\item The model was tested on a small hand crafted graphs that were made specificaly to put greedy algorithm in disadvantage. That at least showed that the model goes in the right direction even if it only manages to solve the easy cases.
+	\end{enumerate}	
 
 \section{Expected Results}
 

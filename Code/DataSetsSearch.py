@@ -30,8 +30,8 @@ filenames = []
 dataset = ss.search(#group = gr, 
                     #kind='Weighted', 
                     limit = 10000, 
-                    rowbounds = (100,10000),
-                    colbounds = (100,10000),
+                    rowbounds = (50,10000),
+                    colbounds = (50,10000),
                     nzbounds = (10,1000000))
 matrices = dataset.download(destpath=f'data/custom', extract=True)
 for dataitem in dataset:

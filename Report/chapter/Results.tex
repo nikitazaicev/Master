@@ -12,22 +12,23 @@ First step was to try the simplest model with most of the hyperparameters set to
  
 Trained on a 1000 MNIST graphs model resulted on average with 55\% of optimal weight possible. This was an expected result considering the limitation, but it at least showed that model is gaining some knowledge compared to untrained model as well as a solution that randomly picks edges, where both resulted in 50-51\% of optimal. 
 
-A model that barely beats random solution is not very usefull. Poor performance for now is mainly to the very limited training, but before adding more data and prolonging training, we can experiments with the parameters of the network to see is they make any impact.
+A model that barely beats random solution is not very usefull. Poor performance for now is mainly due to the very limited training, but before adding more data and prolonging training, we can experiments with the parameters of the network to see if they make any impact.
 
 \subsection{Model improvements and data augmentation}
 
-It would make sense to start with the depth and with of the network. After trying to add up to 6 layers in general it showed more than 3 layers did not have any significant effect. Note: layers tell how many generations of neighbors is used for representation of a node. Increasing breadth did help, but impact got smaller as the breadth got wider. It would also impact time consumptions so it was decided to have the model with 2 layers and 640 nodes at each layer (except input/output layers). Results were, however still rather low at  58\%.
+At this stage model seemed to at slowly improve and learn, but before trying to train it on the whole dataset there were still other techniques and parameters worth testing. Each of the techniques was tested separately. 
 
-Next step was to adjust optimizer parameters: learning rate and weight decay. 
+It would make sense to start with the depth and width of the network. After trying to add up to 6 layers, it showed that more than 3 layers did not have any significant effect. Note: layers tell how many generations of neighbors is used for representation of a node. Increasing breadth did help, but impact got smaller as the breadth got wider. It would also impact running time so it was decided to have the model with 2 layers and 640 nodes at each layer (except input/output layers). Results were, however still rather low at  58\%.
 
-Too high learing rates resulted in too unstable loss function, too low learning rate did not give enough progress and made training proccess too slow. Value of 0.001 worked well as middle ground
+Next step was to adjust optimizer parameters: learning rate and weight decay. Too high learing rates resulted in too unstable training with information loss jumping too much, which indicated that model made too big adjustments after each training iteration. Too low learning rate did not give enough progress and made training proccess too slow. Value of 0.001 worked well as a middle ground.
 
-5. Weight decay
+Weight decay is another hyperparameter that can help with training the model. It can help to keep weight values relatively small and decrease chances of the model memorizing the answers, also called overfitting. However only negative effect were noticed even when training with larger datasets.
 
-6. Trying skip connections, but not noticing any effect.
+Adding skip connections to the architecture adds alternative way for the information to flow through the network. Skip connections help the model to reuse information from previous layers. No significant effect was noticed with only tenths of a percent improvement in performance, possibly due to the network having too few layers. Still, it was decided to keep the skip connections since they did not harm in anyway and could be helpfull later.
 
-7. Augmenting node features. Trying each additional feature separately to see it they have any benefits by themselves, then adding them one by one. Finally using all at once since they can mostly be calculated simultaneously and all have at elast some positive effect:
+Augmenting node features was another technique that was tested. The graphs were preproccessed  Trying each additional feature separately to see it they have any benefits by themselves, then adding them one by one. Finally using all at once since they can mostly be calculated simultaneously and all have at least some positive effect:
 
+REDO !!!
 \begin{figure}[H]
     \centering
     \includegraphics[scale=1.0]{figures/FeatureAugmentationLine}
@@ -35,14 +36,14 @@ Too high learing rates resulted in too unstable loss function, too low learning 
     \label{Feature Augmentation Effect}
 \end{figure}
 
-
-With results starting to move closer to reasonable, now larger training set could be used. Unfortunately line graph transformation on a dense graph turned out to expode in size and take to much time to proccess. Therefore another architecture was considered. Trying edge classification. With same hyperparameters and repurposed node feature augmentation.
+With fine tuning og the models hyperparameters and architecture, and augmenting node features having the most effect on the performance, results were moving closer to reasonable. Now full training sets could be used. Unfortunately line graph transformation on a dense graph turned out to expode in size and take to much time to proccess. Therefore another architecture was considered.
  
 \section{Edge prediction model}
 
-1. Edge classification is a little bit worse on average. In theory it can be due to line graph containing more structural information in it compared to original. 0.88\% of greedy
+Instead of turning edges to nodes model can give prediction in the node pair directly. With this approach there is less preprocessing needed, but the model now needs to have an extra layer for edge prediction as described in \hyperref[sec:architecture]{Aarchitecture section}.
+After training both edge classification model and line graph model on the 55000 MNIST graphs following results were recorded: 88\% for edge classification and 92\% for line graph.
 
-MNIST trained Model's performance on unseen MNIST graphs
+REDO !!! MNIST trained Model's performance on unseen MNIST graphs
 \begin{figure}[H]
     \centering
     \includegraphics[scale=1.0]{figures/FinalPerformanceMNIST}
@@ -50,20 +51,9 @@ MNIST trained Model's performance on unseen MNIST graphs
     \label{Model performance on MNIST}
 \end{figure}
 
-2. Trying to add a reduction rule and 2 additional features: 1st largest weight, 2nd largest weight for each node.
+Edge classification showed a little bit worse results on average than the line graph. In theory it can be due to line graph containing more structural information in it compared to original. Regardless of the slightly worse result edge classification approach was still favourable due to time consumption of the line graph convertion. Naturally, the results are not ideal and further improvements are required. Additionaly due to size of MNIST graphs finding optimal solution using Blossom algorithm takes less time than using this \gls{gnn} model. The model however does catch up timewise when larger graphs are used. 
 
-3. No noticable effect from neither reduction nor additional features.
-
-4. Trying to train graph on the whole dataset of 55000 graphs:
-
-RESULTS ON MNIST:
-
-99\% of greedy, remainder <5%
-
-RESULTS ON larger sage graphs:
-
-sage 10: 0.86\% of greedy, remainder 0.53
-
+REDO !!! 
 \begin{figure}[H]
     \centering
     \includegraphics[scale=1.0]{figures/MNISTtrainSAGE10}
@@ -71,14 +61,12 @@ sage 10: 0.86\% of greedy, remainder 0.53
     \label{model performance}
 \end{figure}
 
-5. Trying custom dataset of 1000+ graphs with varying sizes and structures, between 100 and 10000 nodes:
+As seen on the figure above \gls{gnn} manages to beat the optimal solver in term of time, but it is noticeably worse in terms of total weight. Poor performance can be because of the training dataset. One of the main interests was to see if the \gls{gnn} can be used on graphs larger than the ones it was trained on. It could be that model fails to learn what is needed for larger graphs. Another reason could be that MNIST graphs have similar structure without enough variety to cover other graph type. One ofcourse cannot include all the possible graphs in the training set, but the more data and variety model gets during training the better. Therefore another dataset was tried for training. A custom dataset consisting of randomly picked graphs from the SuiteSparse database. This custom dataset consists of 1000+ graphs with varying sizes and structures, between 100 and 10000 nodes.
 
-Results on MNIST: 
+Training the same model on the new dataset gave following results:
+ADD FIGURE !!! RESULTS ON MNIST
 
-Results on larger sage graphs:
-
-sage 10: 94\% of greedy, remainder =  0.54
-
+REDO FIGURE !!!
 \begin{figure}[H]
     \centering
     \includegraphics[scale=1.0]{figures/CUSTOMtrainSAGE10}
@@ -86,9 +74,14 @@ sage 10: 94\% of greedy, remainder =  0.54
     \label{model performance}
 \end{figure}
 
+With results still being unsatisfying, last improvement attempts were made.
 
-6. Adjusting the threshold for the picking edges in to the solution and trying to remove edges below secondary threshold:
+Trying to add a reduction rule and 2 additional features: 1st largest weight, 2nd largest weight for each node.
 
+ADD FIGURE !!! RESULTS FOR THE REDUCTION
+
+Adjusting the threshold for the picking edges in to the solution and trying to remove edges below secondary threshold:
+REDO FIGURE !!!
 \begin{figure}[H]
     \centering
     \includegraphics[scale=1.0]{figures/ThresholdDemo}
@@ -96,225 +89,37 @@ sage 10: 94\% of greedy, remainder =  0.54
     \label{Model performance on sage10 graph}
 \end{figure}
 
-
-\section{Comparison of results}
-
-
-
 \section{Final results}
 
-Results of the best model (trained using CUSTOM dataset) on increasingly larger graphs:
+With time and ideas for further improvements staring to end, the final best model was tested on increasingly larger graphs. The final parameters of the model were:
 
+\begin{enumerate}
+\item Learning rate = 0.001
+\item Network depth and width = 2 layers, 640 neurons each
+\item Class weights = 0.1 and 0.9 for excluded and included in solution respectively
+\item Weight decay = 0
+\item Added pre computed node features
+	\begin{itemize}
+	\item Degree - how many neighbours a node has
+	\item Weight relative to the sum of neighbours.
+	\item Weight difference from the sum of the neighbours.
+	\item Sums of the weights. 
+	\end{itemize}
+\end{enumerate}
 
+ADD FIGURE !!! Final and best model trained using custom dataset on increasingly larger graphs:
 
 \subsection{Weakness of greedy algorithm}
 
-On average greedy seems to show realy good results, but in theory it is not hard to make a graph that abuses the greedy approach and results in poor performance. Example of a graph that \gls{gnn} model easily beats:
+On average greedy seems to show realy good results, but in theory it is not hard to make a graph that abuses the greedy approach and results in poor performance. Example of a graph that \gls{gnn} model should be able to beat:
 
-END
-----------------------------------------------------------------------------------------------------------------------------------------
-MISC NOTES IGNORE
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=1.0]{figures/GoodCase}
+    \caption{Good case for GNN}
+    \label{Good case for GNN}
+\end{figure}
 
-Line graph vs normal vs normal with features (compared to standard greedy)
+In this very simple case the greedy algorithm will result in total weight = 5. Yet the \gls{gnn} does manage to get the optimal weight = 8. This ofcourse does not neccesarily prove anything, but shows that there might be use cases for the model. 
 
-MNIST:
-0.92 vs  0.77 vs  0.88 
-Normal greedy remainder
-LOW vs LOW vs LOW 
-
-GOOD CASE data/Pajek/GD98b/GD98b.mtx:
-1.43 vs  0.00 vs 1.00
-Normal greedy remainder
-LOW vs LOW vs LOW
-
-MNIST 
-----------------
-GNN AVG Time =  0.1821751117706299
-GREED AVG Time =  0.002601337432861328
-GNN AVG Weight =  17.13489990234375
-GREED AVG Weight =  17.2469970703125
-remainder =  0.0440
-----------------
-
-trained on mix MIX
-
-
-MNIST with reduction
-----------------
-GNN AVG Time =  0.2019108772277832
-GREED AVG Time =  0.0028308868408203126
-GNN AVG Weight =  17.117236328125
-GREED AVG Weight =  16.9795166015625
-weightResDif =  0.0355
-----------------
-
-trained on mix MIX
-
-cage10 
---------------------------------------------
-with reduction trained on MNIST
-
-TIME
-Opt AVG Time =  226.44823741912842
-GNN AVG Time =  33.7434720993042
-GREED AVG Time =  0.719895601272583
-----------------
-WEIGHT
-Opt AVG Weight =  169.5332794189453
-GNN AVG Weight =  123.09953308105469
-GREED AVG Weight =  169.0205456027761
-----------
-weightResDif =  0.32484549283981323
------------
-END
-
-TIME
-Opt AVG Time =  238.8848557472229
-GNN AVG Time =  35.6191520690918
-GREED AVG Time =  0.8406157493591309
-----------------
-WEIGHT
-Opt AVG Weight =  0.3864327073097229
-GNN AVG Weight =  0.3369670510292053
-GREED AVG Weight =  0.38539551471512823
-----------
-weightResDif =  0.5323471426963806
------------
-END
-
-cage10 
---------------------------------------------
-without reduction trained on MNIST
-
-TIME
-Opt AVG Time =  229.30790853500366
-GNN AVG Time =  62.8546507358551
-GREED AVG Time =  1.4378819465637207
-----------------
-WEIGHT
-Opt AVG Weight =  169.5332794189453
-GNN AVG Weight =  90.18408966064453
-GREED AVG Weight =  169.06105741672218
-----------
-weightResDif =  0.5952541828155518
------------
-END
-
-TIME
-Opt AVG Time =  228.7730164527893
-GNN AVG Time =  54.679471492767334
-GREED AVG Time =  1.3367598056793213
-----------------
-WEIGHT
-Opt AVG Weight =  0.3864327073097229
-GNN AVG Weight =  0.2927633821964264
-GREED AVG Weight =  0.38536409468088095
-----------
-weightResDif =  0.8586757183074951
------------
-END
-
-cage10 
---------------------------------------------
-with reduction, trained on MIX
-
-TIME
-Opt AVG Time =  226.55958795547485
-GNN AVG Time =  38.985610246658325
-GREED AVG Time =  0.7930364608764648
-----------------
-WEIGHT
-Opt AVG Weight =  169.5332794189453
-GNN AVG Weight =  133.77395629882812
-GREED AVG Weight =  169.0205456027761
-----------
-weightResDif =  0.38094136118888855
------------
-END
-
-TIME
-Opt AVG Time =  230.7519097328186
-GNN AVG Time =  36.04787516593933
-GREED AVG Time =  0.709648847579956
-----------------
-WEIGHT
-Opt AVG Weight =  0.3864327073097229
-GNN AVG Weight =  0.36708855628967285
-GREED AVG Weight =  0.38539551471512823
-----------
-weightResDif =  0.5425851345062256
------------
-END
-
-cage10 
---------------------------------------------
-without reduction, trained on MIX
-
-TIME
-Opt AVG Time =  237.57963299751282
-GNN AVG Time =  63.44921660423279
-GREED AVG Time =  1.4237451553344727
-----------------
-WEIGHT
-Opt AVG Weight =  169.5332794189453
-GNN AVG Weight =  116.88045501708984
-GREED AVG Weight =  169.06105741672218
-----------
-weightResDif =  0.7212029695510864
------------
-END
-
-TIME
-Opt AVG Time =  220.3951222896576
-GNN AVG Time =  59.582497119903564
-GREED AVG Time =  1.435647964477539
-----------------
-WEIGHT
-Opt AVG Weight =  0.3864327073097229
-GNN AVG Weight =  0.35216498374938965
-GREED AVG Weight =  0.38536409468088095
-----------
-weightResDif =  0.837394654750824
------------
-END
-
-
-----------------------------------------
-
-cage11  
-
-without reduction
-
-TIME
-Opt AVG Time =  1624.2668080329895
-GNN AVG Time =  90.85399174690247
-GREED AVG Time =  2.7126402854919434
-----------------
-WEIGHT
-Opt AVG Weight =  793.24462890625
-GNN AVG Weight =  595.8353271484375
-GREED AVG Weight =  790.162699168548
-----------
-weightResDif =  0.39534446597099304
------------
-END
-
-
-NOT line NN graph MNIST weights normalized vs MNIST weights ones vs MNIST weights 1-2 vs MNIST weights 1-5
-0.88 vs 1.00  vs 0.83 vs 0.60
-
-\section{Performance on unseen data}
-
-\begin{center}
-\begin{tabular}{||c c c||} 
- \hline
- Algorithm & Time & Weight \\ [0.5ex] 
- \hline\hline
- GNN & 1 & 6 \\ 
- \hline
- Greedy & 2 & 7 \\ [1ex] 
- \hline
-\end{tabular}
-\end{center}
-
-How well the final model solves the matching problem
+Additionaly, given that the runing times of greedy and \gls{gnn} combined are still lower than running time of finding the optimal solution, one may even run both and choose the better result.

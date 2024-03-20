@@ -1,6 +1,41 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+# Example data
+graphs = ['Standard']#,'Line Graph')
+y_pos = np.arange(len(graphs))
+
+
+#bar_colors = ['tab:blue', 'tab:orange']
+#performance = [0.92, 0.88]
+performance2 = {
+    
+    'GNN': [(1-0.4)*0.84], #, (1-0.04)*0.88],
+    'Remainder': [0.4*0.84] #, 0.04*0.88]
+    }
+
+fig, ax = plt.subplots()
+#hbars = ax.barh(y_pos, [0.92, 0.88], align='center', color=bar_colors)
+
+l = [0]*1
+
+for source, perf in performance2.items():
+    hbars = ax.barh(y_pos, perf, height=0.1, left=l, align='center', label=source)
+    l = perf
+    ax.bar_label(hbars, label_type='center', fmt='%.2f')
+
+ax.set_yticks(y_pos, labels=graphs)
+ax.invert_yaxis()
+ax.set_title('MNIST performance on non-MNIST graphs')
+ax.set_xlabel('Performance compared to greedy')
+ax.legend(title='Contributor')
+# Label with specially formatted floats
+#ax.bar_label(hbars, fmt='%.2f')
+ax.set_xlim(left=0.0, right=1.1)  # adjust xlim to fit labels
+ax.set_ylim(bottom=-0.2, top=0.2)  # adjust xlim to fit labels
+
+plt.show()
+exit()
 
 cage8perf = 0.95 # 0.43 remainder 1000 nodes 10 000 edges
 cage9perf = 0.94 # 0.46 remainder 3500 nodes 38 000 edges
@@ -31,7 +66,7 @@ GREEDAVGWeight =  0.36219949417068165
 weightResDif =  0.6565099954605103
 
 
-# #"MNIST trained performance on sage 10"
+# #"MNIST trained performance on cage 10"
 # OptAVGTime =  238.8848557472229
 # GNNAVGTime =  35.6191520690918
 # GREEDAVGTime =  0.8406157493591309
@@ -42,32 +77,40 @@ weightResDif =  0.6565099954605103
 # #----------------
 # remainder =  0.5323471426963806
 
-# # CUSTOM trained performance on sage10
-# OptAVGTime =  230.7519097328186
-# GNNAVGTime =  36.04787516593933
-# GREEDAVGTime =  0.709648847579956
+
+
+
+# # CUSTOM trained performance on cage9
+#temp 774/876 r=0.56 50 epoch 0.0005 lr
+
+# # CUSTOM trained performance on cage10
+#temp 4212/4623 r=0.73 50 epoch 0.0005 lr
+
+OptAVGTime =  230.7519097328186
+GNNAVGTime =  36.04787516593933
+GREEDAVGTime =  0.709648847579956
 # #----------------
-# OptAVGWeight =  0.3864327073097229
-# GNNAVGWeight =  0.36708855628967285
-# GREEDAVGWeight =  0.38539551471512823
+OptAVGWeight =  876.6
+GNNAVGWeight =  774.2
+GREEDAVGWeight =  870.8
 # #----------
-# remainder =  0.5425851345062256
+remainder =  0.5425851345062256
 # #-----------
 
-# fig, ax = plt.subplots(2)
-# labels = ["GNN", "GREED", "OPT"]
-# w = [GNNAVGWeight, GREEDAVGWeight, OptAVGWeight]
-# bar = ax[0].bar(labels, w, color='grey')
-# ax[0].axhline(y=OptAVGWeight,linewidth=1, color='k')
-# ax[0].set_ylabel('Weight')
-# ax[0].set_ylim(bottom=0.3, top=0.4)
-# ax[0].bar_label(bar, label_type='center', fmt='%.3f')
+fig, ax = plt.subplots(2)
+labels = ["GNN", "GREED", "OPT"]
+w = [GNNAVGWeight, GREEDAVGWeight, OptAVGWeight]
+bar = ax[0].bar(labels, w, color='grey')
+ax[0].axhline(y=OptAVGWeight,linewidth=1, color='k')
+ax[0].set_ylabel('Weight')
+ax[0].set_ylim(bottom=0.3, top=0.4)
+ax[0].bar_label(bar, label_type='center', fmt='%.3f')
 
-# t = [GNNAVGTime, GREEDAVGTime, OptAVGTime]
-# ax[1].set_ylabel('Time')
-# bar = ax[1].bar(labels, t, color='orange', edgecolor = "black")
-# ax[1].bar_label(bar, label_type='center', fmt='%.0f')
-# plt.show()
+t = [GNNAVGTime, GREEDAVGTime, OptAVGTime]
+ax[1].set_ylabel('Time')
+bar = ax[1].bar(labels, t, color='orange', edgecolor = "black")
+ax[1].bar_label(bar, label_type='center', fmt='%.0f')
+plt.show()
 
 # exit()
 # fig, ax = plt.subplots()
@@ -129,36 +172,3 @@ ax.legend(title='Contributor')
 ax.set_xlim(left=0.0, right=1.4)  # adjust xlim to fit labels
 
 exit()
-# Example data
-graphs = ('Line Graph', 'Standard')
-y_pos = np.arange(len(graphs))
-
-
-#bar_colors = ['tab:blue', 'tab:orange']
-#performance = [0.92, 0.88]
-performance2 = {
-    
-    'GNN': [(1-0.03)*0.92, (1-0.04)*0.88],
-    'Remainder': [0.03*0.92, 0.04*0.88]
-    }
-
-fig, ax = plt.subplots()
-#hbars = ax.barh(y_pos, [0.92, 0.88], align='center', color=bar_colors)
-
-l = [0]*2
-
-for source, perf in performance2.items():
-    hbars = ax.barh(y_pos, perf, left=l, align='center', label=source)
-    l = perf
-    ax.bar_label(hbars, label_type='center', fmt='%.2f')
-
-ax.set_yticks(y_pos, labels=graphs)
-ax.invert_yaxis()
-ax.set_title('MNIST dataset test')
-ax.set_xlabel('Performance compared to greedy')
-ax.legend(title='Contributor')
-# Label with specially formatted floats
-#ax.bar_label(hbars, fmt='%.2f')
-ax.set_xlim(left=0.5, right=1.2)  # adjust xlim to fit labels
-
-plt.show()

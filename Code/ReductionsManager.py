@@ -2,6 +2,7 @@ import torch
 import torch_geometric.utils as u
 from MyDataLoader import Data
 import numpy as np
+import LineGraphConverter as lgc
 
 np.random.seed(123)
 torch.manual_seed(123)
@@ -61,7 +62,7 @@ def ApplyReductionRules(graph):
                                topWeights[n][6],topWeights[n][7],to_node)
        
     #rule 1 dominating edge
-    weightSum, wasReduced, pickedNodeIds = torch.tensor([0.0]), True, set()
+    weightSum, wasReduced, pickedNodeIds = torch.tensor([0.0]).to(device), True, set()
     while wasReduced and len(pickedNodeIds) < graph.num_nodes:
         wasReduced = False
         for i in range(len(graph.edge_index[0])):
@@ -189,19 +190,19 @@ def ReduceGraph(original, graph, pickedNodeIds):
 
 def ReduceGraphOriginal(originalG, pickedNodeIds):  
     reducedOrig = Data()
+    reducedOrig.x = lgc.UpdateNodeFeatures(originalG, originalG.adj, pickedNodeIds).to(device)
     subset = [x for x in range(originalG.num_nodes) if x not in pickedNodeIds]
     subset = torch.IntTensor(subset).to(device)
     new_edge_index, edge_weight = u.subgraph(subset, originalG.edge_index, originalG.edge_weight, relabel_nodes = True)    
-    new_node_feature = originalG.node_features[subset]
     reducedOrig.edge_index = new_edge_index
-    reducedOrig.edge_weight = edge_weight 
-    reducedOrig.node_features = new_node_feature
-    
-    reducedOrig.x = originalG.x[subset]
-    
-    reducedOrig.num_nodes = len(reducedOrig.x)
+    reducedOrig.edge_weight = edge_weight
+    reducedOrig.edge_attr = edge_weight.flatten()
+    reducedOrig.num_nodes = originalG.num_nodes-len(pickedNodeIds)
     reducedOrig.num_edges = len(reducedOrig.edge_index[0])
-
+    reducedOrig.x = reducedOrig.x[subset]
+    #reducedOrig.x = lgc.AugmentOriginalNodeFeatures(reducedOrig).to(device)
+    reducedOrig.adj = GenerateAdjListNoIdx(reducedOrig)
+    
     assert(len(reducedOrig.edge_weight)==len(reducedOrig.edge_index[0]))
     assert((len(reducedOrig.edge_index[0])==reducedOrig.num_edges))
     assert((len(reducedOrig.x)==reducedOrig.num_nodes))
@@ -225,6 +226,16 @@ def GenerateAdjList(graph):
         to_node = graph.edge_index[1][i].item()
         adjL[from_node].add(to_node)
         adjL[to_node].add(from_node)
+    return adjL
+
+def GenerateAdjListNoIdx(graph):
+    adjL = [set() for _ in range(graph.num_nodes)]
+    for i in range(len(graph.edge_index[0])):
+        w = graph.edge_weight[i].item()
+        from_node = graph.edge_index[0][i].item()
+        to_node = graph.edge_index[1][i].item()
+        adjL[from_node].add((to_node,w))
+        adjL[to_node].add((from_node,w))
     return adjL
 
 def WeightedAdjList(graph):

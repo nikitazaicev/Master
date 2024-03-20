@@ -27,15 +27,15 @@ print("TEST BIG GRAPH")
 print("----------------")
 
 try:
-    #with open('data/MNISTTRAINED/MyModel.pkl', 'rb') as file:
+    with open('data/MNISTTRAINED/MyModel.pkl', 'rb') as file:
     #with open('data/CUSTOMTRAINED/MyModel.pkl', 'rb') as file:
-    with open('data/MyModel.pkl', 'rb') as file:
+    #with open('data/tempMyModel.pkl', 'rb') as file:
         print("Loading Model")
         model = pickle.load(file).to(device)
         model.eval()
-    #with open('data/MNISTTRAINED/MyModelClass.pkl', 'rb') as file:
+    with open('data/MNISTTRAINED/MyModelClass.pkl', 'rb') as file:
     #with open('data/CUSTOMTRAINED/MyModelClass.pkl', 'rb') as file:
-    with open('data/MyModelClass.pkl', 'rb') as file:
+    #with open('data/tempMyModelClass.pkl', 'rb') as file:
         classifier = pickle.load(file).to(device) 
         classifier.eval()
         modelLoaded = True
@@ -47,8 +47,8 @@ gr = 'vanHeukelum'
 dataset = ss.search(group = gr, 
                     kind='Directed Weighted Graph', 
                     limit = 1, 
-                    rowbounds = (3000,6301),
-                    colbounds = (3000,6301))
+                    rowbounds = (2000,100000),
+                    colbounds = (2000,100000))
 
 useReduction = False
 filenames = []
@@ -62,14 +62,22 @@ for filename in filenames:
 
     mmformat = mmread(f'data/{gr}/{filename}/{filename}.mtx').toarray()
     graph = dl.FromMMformat(mmformat)
+    graph = graph.to(device)
     graph.edge_weight = torch.reshape(graph.edge_weight, (len(graph.edge_weight), 1))
+    weightSum = 0
+    
+    weightRed, reductionImpact = 0, 0
+    if useReduction: 
+        print("Before reduction: ", graph.num_nodes)
+        graph, weightRed = rm.ApplyReductionRules(graph)
+        weightSum += weightRed
+        print("After reduction: ", graph.num_nodes)
+
+    graph = graph.to(device)
     print("EDGES: ", len(graph.edge_index[0]))
     if graph.edge_weight is None: graph.edge_weight = graph.edge_attr
     print("EDGE ATTRS : ", graph.edge_attr)
     print("EDGE WEIGHTS : ", graph.edge_weight)
-    #graphs, converted_dataset, target = dl.LoadVal(limit=1)
-    #graph = graphs[0]
-    graph = graph.to(device)
     blossominput = []
     target = []
     for i in range(len(graph.edge_index[0])):
@@ -80,7 +88,7 @@ for filename in filenames:
     print("started blossom matching")
     match=maxWeightMatching(blossominput)
     timeTotal = time.time() - start_time
-    print("done greedy matching")    
+    print("done blossom matching")    
     target.append(match)
     
     
@@ -110,20 +118,13 @@ for filename in filenames:
         
     resultsOpt.append([("TIME", timeTotal),("WEIGHT", totalWeightOpt.item())])
 
-    weightSum = 0
-    print("Before reduction: ", graph.num_nodes)
-    
+
+    print("started gnn matching")
     start_time = time.time()
-    graph.x = lgc.AugmentOriginalNodeFeatures(graph, undirected = True)
+    graph.x, graph.adj = lgc.AugmentOriginalNodeFeatures(graph, undirected = True)
     print("NODE ATTR: ", graph.x[0])
     timeAugment = time.time() - start_time
-
-    weightRed, reductionImpact = 0, 0
-    if useReduction: 
-        graph, weightRed = rm.ApplyReductionRules(graph)
-        weightSum += weightRed
-
-    print("After reduction: ", graph.num_nodes)
+    
     start_time = time.time()
     print("started greedy matching")
     weightGreedy, pickedEdgeIndeces = gp.GreedyMatchingOrig(graph)
@@ -134,11 +135,12 @@ for filename in filenames:
     resultsGreedy.append([("TIME", timeTotal),("WEIGHT", weightGreedy)])
     
     
-    print("started gnn matching")
+
 
     start_time = time.time()
-    graph, weightGnn, droppedNodes = MyGCN.GNNMatching(model, classifier, graph.to(device), 0.5, 0.0)
+    graph, weightGnn, droppedNodes, iterations = MyGCN.GNNMatching(model, classifier, graph.to(device), 0.70, 0.0)
     print("GNN", weightGnn)
+    print("GNN iters", iterations)
     weightRes, pickedEdgeIndeces = gp.GreedyMatchingOrig(graph)
     print("GNN REMAINDER", weightRes)
     

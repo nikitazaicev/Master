@@ -43,16 +43,16 @@ class EdgeClassifier(torch.nn.Module):
     def embedEdges(self, nodeEmbed, graph):
         x_src, x_dst = nodeEmbed[graph.edge_index[0]], nodeEmbed[graph.edge_index[1]]
         
-        edgeFeats = torch.zeros([len(graph.edge_index[0]),1]).to(device)
+        edgeFeats = torch.ones([len(graph.edge_index[0]),1]).to(device)
         uniqueEdges = set()
-        for i in range(len(graph.edge_index[0])):
-            from_node = graph.edge_index[0][i]
-            to_node = graph.edge_index[1][i]
+        # for i in range(len(graph.edge_index[0])):
+        #     from_node = graph.edge_index[0][i]
+        #     to_node = graph.edge_index[1][i]
             
-            if (from_node, to_node) in uniqueEdges: continue
-            uniqueEdges.add((from_node, to_node))
-            w = graph.edge_weight[i]            
-            edgeFeats[i][0] = 1      
+        #     if (from_node, to_node) in uniqueEdges: continue
+        #     uniqueEdges.add((from_node, to_node))
+        #     w = graph.edge_weight[i]            
+        #     edgeFeats[i][0] = 1      
         
         edgeEmbed = torch.cat([x_src, edgeFeats, x_dst], dim=-1)        
         return edgeEmbed
@@ -116,9 +116,9 @@ def GNNMatching(gnn, classifier, graph, tresholdP = 0.5, tresholdN = 0.0, verbos
     weightSum = 0
     step = 1
 
-    while (graph.num_nodes-2*len(picked_edges)) > 2:
+    while (graph.num_nodes-2*len(picked_edges)) > 2 and step <= 2:
         if verbose: print("Step - ", step)
-    
+        step += 1
         
         out = gnn(graph)
         out = classifier(classifier.embedEdges(out,graph))  
@@ -148,8 +148,8 @@ def GNNMatching(gnn, classifier, graph, tresholdP = 0.5, tresholdN = 0.0, verbos
         graph = rm.ReduceGraphOriginal(graph, picked_nodes)
         if verbose: print("Total nodes in converted graph remains = ", len(graph.x))
         if graph.num_nodes <= 0: break    
-        step += 1
-    return graph, weightSum, droppedNodes
+        
+    return graph, weightSum, droppedNodes, step
     
     
     

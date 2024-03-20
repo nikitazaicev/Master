@@ -2,15 +2,15 @@
 
 This chapter is an introduction that explains the goals and reasons for this work.
 
-\subsection{Goal}
+\section{Goal}
 
 \gls{ml} and Neural Networks have shown to be extremely potent and versatile in solving vast variety of problems across different fields. One research field that has been popular and challenging in the last few years is \gls{co}. \gls{co} includes problems such as \gls{mis} and \gls{mwm}. Such problems can be viewed in the context of graphs. \gls{gnn} is a subclass of \gls{nn}s designed specifically for solving problems related to graphs, but there are some problems that have not yet been solved efficiently with \gls{gnn}s. 
 
-The main goal for this project is to: "Find out whether a \gls{gnn} can outperform approximations algorithms such as greedy in solving \gls{mwm} problem. 
+The main goal for this project is to: "Find out whether a \gls{gnn} can outperform approximation algorithms such as greedy in solving \gls{mwm} problem. 
 
-\subsection{Reason}
+\section{Reason}
 
-Previous section describes "what" is this work about. Now lets briefly discuss "why" do this in the first place. The idea is rather simple. There are 2 types of algorithms in general: exact and approximate. The exact algorithm for \gls{mwm} already exists, but the down side of such algorithms is their speed. The slower nature of exact algorithms is one of the reasons why approximation algorithms are used in some cases. The hope is that  \gls{gnn} can potantialy squeeze between the approximation and optimal algorithms in terms of both time and accuracy.
+Previous section describes "what" is this work about. Now lets briefly discuss "why" do this in the first place. The idea is rather simple. There are 2 types of algorithms in general: exact and approximate. The exact algorithms for \gls{mwm} already exist, but the down side of such algorithms is their speed. The slower nature of exact algorithms is one of the reasons why approximation algorithms are used in some cases. The hope is that  \gls{gnn} can potantialy squeeze in between the approximation and exact algorithms in terms of both time and accuracy.
 
 In short, the reason is: "There can be a machine learning based algorithm that gives better results than existing approximation algorithms"
 
@@ -37,26 +37,6 @@ This Chapter will focus on temporary results produced during the reseach and exp
 Here the conclusion for this project will be drawn regarding whether the results gave any meaningfull insight and what future work can be done for improvements.
 
 \end{enumerate}
-
-\subsection{Listings}
-You can do listings, like in Listing~\ref{ListingReference}
-\begin{lstlisting}[caption={[Short caption]Look at this cool listing. Find the rest in Appendix~\ref{Listing}},label=ListingReference]
-$ java -jar myAwesomeCode.jar
-\end{lstlisting}
-
-You can also do language highlighting for instance with Golang:
-And in line~\ref{LineThatDoesSomething} of Listing~\ref{ListingGolang} you can see that we can ref to lines in listings.
-
-\begin{lstlisting}[caption={Hello world in Golang},label=ListingGolang,escapechar=|]
-package main
-
-import "fmt"
-
-func main() {
-    fmt.Println("hello world") |\label{LineThatDoesSomething}|
-}
-
-\end{lstlisting}
 
 \subsection{\gls{git}}
 

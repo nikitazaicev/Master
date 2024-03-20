@@ -167,7 +167,7 @@ def PreproccessOriginal(dataset, target, datasetname, undirected = True, doNorma
             dataitem.edge_attr = dataitem.edge_attr.to(device)
             dataitem.edge_weight = torch.reshape(dataitem.edge_attr, (len(dataitem.edge_attr), 1))
             dataitem.edge_weight = dataitem.edge_weight.to(device)
-        dataitem.x = lgc.AugmentOriginalNodeFeatures(dataitem, undirected = undirected)
+        dataitem.x, dataitem.adj = lgc.AugmentOriginalNodeFeatures(dataitem, undirected = undirected)
         dataitem.y = target[i]
         mydataset.append(dataitem)
     return mydataset
