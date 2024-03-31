@@ -14,14 +14,15 @@ Another important aspect that must be taken in to the consideration is that it i
 
 \section{Main Idea}
 
-To summarize, given a weighted udirected graph, the \gls{nn} must predict  a valid subset of edges or in other words pairs of vertices that maximize the total weight. The \gls{nn} will have a graph as an input and the otput will be the probabilities (0.00 - 1.00) of how likely an edge will be in the matching. To control that a solution is valid, instead of picking all the edges with the probability higher than 50\%, the edges can be sorted by their probabilities and greedily picked in that order if they don't break the validity of the solution. This might sound illogical to use greedy algorithm on the models output to beat the normal greedy algorithm with weights, but the fact that edges are now sorted not by their weight, but a score decided by \gls{nn} does make a difference, since the \gls{gnn} can take multiple features in consideration when assigning probabilities. Some of these features come naturaly such as structure of the graph, and some we can manualy add during preprocessing. 
+To summarize, given a weighted udirected graph, the \gls{nn} must predict  a valid subset of edges or in other words pairs of vertices that maximize the total weight. The \gls{nn} will have a graph as an input and the otput will be the probabilities (0.00 - 1.00) of how likely an edge will be in the matching. To control that a solution is valid, instead of picking all the edges with the probability higher than 50\%, the edges can be sorted by their probabilities and greedily picked in that order if they don't break the validity of the solution. This might sound illogical to use greedy algorithm on the models output to beat the normal greedy algorithm with weights, but the fact that edges are now sorted not by their weight, but a score decided by \gls{nn} does make a difference, since the \gls{gnn} can take multiple features in consideration when assigning probabilities. Some of these features come naturaly from the structure of the graph, and some we can manualy add during preprocessing. 
 
-\gls{nn}s have a lot of hyperparameters and methods that can be tuned to make a model better suited for the task. The ideal way of finding the best combination of the hyperparameters is to try as many combinations as possible. Train a model for each combination and choose the one with best performance. This is a time consuming procedure however and therefore in this task the exploration of hyperparameters was narrowed down to the ones that seemed most important and indicated positive impact during early experiments. 
+\gls{nn}s have a lot of hyperparameters and methods that can be tuned to make a model better suited for the task. The ideal way of finding the best combination of the hyperparameters is to try as many combinations as possible. Train a model for each combination and choose the one with best performance. This is a time consuming procedure however and therefore in this task the exploration of hyperparameters was narrowed down to the ones that seemed most important and indicated positive impact during early experiments. For training, Adam optimizer was used \cite{kingma2017adam}. Optimizer is used to adjust the weights of the network during training. Adam optimizer has several hyperparameters that can be usefull to achieve better results and is one of the popular optimizers to use.
 
 During the experiments following hyperparameters were tested:
 \begin{enumerate}
 \item Learning rate - by how much the weights of the model should be corrected
-\item Network depth and width - layers and neurons
+\item Network depth - amount of layers 
+\item Network width - neurons in the layers
 \item Class weights - how much should the model focus on a given class. Classes being: 
 	\begin{itemize}
 	\item 0 = is NOT in the solution.
@@ -66,8 +67,6 @@ class MyGCN(torch.nn.Module):
         self.conv2 = GCNConv(640, 640)
         self.lin = Linear(640, 2) # 2 classes 
 \end{lstlisting}
-
-For training, Adam optimizer was used \cite{kingma2017adam}. Optimizer is used to adjust the weights of the network during training. Adam optimizer has several hyperparameters that can be usefull to achieve better results and is one of the popular optimizers to use.
 
 Now, let us go through the whole process of a graph being matched using the \gls{gnn} presented here.
 
@@ -140,7 +139,7 @@ Line garphs node features:
 Normal graph edge features. Here some adjustments are made since nodes do not have any weights assigned unlike line graph.
 
 \begin{enumerate}
-\item Sum of the weights of all the outgoing edges.  \[ Wsum = (\sum_{i=0}^{|edges|} edges[i].weight) \]
+\item Sum of the weights of all the outgoing edges.  \[ Wsum = (\sum_{i=0}^{|node.edges|} node.edges[i].weight) \]
 \item Wsum relative to the Wsum of neighbours. For each vertex v:  \[ Wrel = Wsum \div (\sum_{n=0}^{|neighbors|} neighbors[n].Wsum) \]
 \item Wsum difference from the Wsum of the neighbours. For each vertex v: \[ Wdiff = Wsum \div (\sum_{n=0}^{|neighbors|} neighbors[n].Wsum) \]
 \end{enumerate}

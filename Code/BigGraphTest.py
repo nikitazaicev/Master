@@ -10,6 +10,7 @@ import LineGraphConverter as lgc
 import ReductionsManager as rm
 import ssgetpy as ss
 from scipy.io import mmread
+import copy
 torch.manual_seed(123)
 random.seed(123)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -24,18 +25,17 @@ print("TEST BIG GRAPH")
 # GAP-web
 # sk-2005
 
-print("----------------")
 
 try:
-    with open('data/MNISTTRAINED/MyModel.pkl', 'rb') as file:
+    #with open('data/MNISTTRAINED/MyModel.pkl', 'rb') as file:
     #with open('data/CUSTOMTRAINED/MyModel.pkl', 'rb') as file:
-    #with open('data/tempMyModel.pkl', 'rb') as file:
+    with open('data/tempMyModel.pkl', 'rb') as file:
         print("Loading Model")
         model = pickle.load(file).to(device)
         model.eval()
-    with open('data/MNISTTRAINED/MyModelClass.pkl', 'rb') as file:
+    #with open('data/MNISTTRAINED/MyModelClass.pkl', 'rb') as file:
     #with open('data/CUSTOMTRAINED/MyModelClass.pkl', 'rb') as file:
-    #with open('data/tempMyModelClass.pkl', 'rb') as file:
+    with open('data/tempMyModelClass.pkl', 'rb') as file:
         classifier = pickle.load(file).to(device) 
         classifier.eval()
         modelLoaded = True
@@ -43,9 +43,12 @@ except Exception: print("No model found. EXIT")
 
 #graphs, converted_dataset, target = dl.LoadTest(limit=10)
 
-gr = 'vanHeukelum'
+#gr = 'Gset'
+gr = 'Pajek'
+#gr = 'Newman'
+#gr = 'vanHeukelum'
 dataset = ss.search(group = gr, 
-                    kind='Directed Weighted Graph', 
+                    #kind='Directed Weighted Graph', 
                     limit = 1, 
                     rowbounds = (2000,100000),
                     colbounds = (2000,100000))
@@ -69,12 +72,15 @@ for filename in filenames:
     weightRed, reductionImpact = 0, 0
     if useReduction: 
         print("Before reduction: ", graph.num_nodes)
-        graph, weightRed = rm.ApplyReductionRules(graph)
+        graph2, weightRed, reductionNodeIds = rm.ApplyReductionRules(copy.deepcopy(graph))
         weightSum += weightRed
-        print("After reduction: ", graph.num_nodes)
+        print(weightRed) 
+        print("After reduction: ", graph2.num_nodes)
 
     graph = graph.to(device)
     print("EDGES: ", len(graph.edge_index[0]))
+    print("NODES: ", graph.num_nodes)
+    edgesnum, nodesnum = graph.num_edges, graph.num_nodes
     if graph.edge_weight is None: graph.edge_weight = graph.edge_attr
     print("EDGE ATTRS : ", graph.edge_attr)
     print("EDGE WEIGHTS : ", graph.edge_weight)
@@ -134,11 +140,9 @@ for filename in filenames:
     timeTotal = time.time() - start_time
     resultsGreedy.append([("TIME", timeTotal),("WEIGHT", weightGreedy)])
     
-    
-
-
     start_time = time.time()
-    graph, weightGnn, droppedNodes, iterations = MyGCN.GNNMatching(model, classifier, graph.to(device), 0.70, 0.0)
+    graph, weightGnn, pickedNodes, iterations = MyGCN.GNNMatching(model, classifier, graph.to(device), 0.50, 0.0, test = reductionNodeIds)
+    
     print("GNN", weightGnn)
     print("GNN iters", iterations)
     weightRes, pickedEdgeIndeces = gp.GreedyMatchingOrig(graph)
@@ -153,8 +157,11 @@ for filename in filenames:
                        ("WEIGHT", weightSum),
                        ("Gnn Res weight remainder", weightResDif),
                        ("Reduction weight portion", reductionImpact),
-                       ("Gnn Dropped Nodes", len(droppedNodes))])
+                       ("Gnn Dropped Nodes", len(pickedNodes))])
     print("done gnn matching")
+    print("Current graph:", filename)
+    print("Nodes = ", nodesnum, "Edges = ", edgesnum)
+    
     
 avgTimeGnn, avgWeightGnn = 0,0
 avgTimeGreed, avgWeightGreed = 0,0

@@ -30,8 +30,9 @@ except Exception: print("No model found. EXIT")
 model.eval()
 classifier.eval()
 
-graphs, converted_dataset, target = dl.LoadVal(limit=10, doNormalize=False)
+graphs, converted_dataset, target = dl.LoadVal(limit=100)
 
+#graphs, converted_dataset, target = dl.LoadTrain(limit=9, doNormalize=False)
 
 # with open('data/OptGreedDiffDataPaths.pkl', 'rb') as file:
 #     goodcases = pickle.load(file)
@@ -94,7 +95,7 @@ for idx, graph in enumerate(graphs):
     start_time = time.time()
     #graph.x = lgc.AugmentOriginalNodeFeatures(graph)
     graph = graph.to(device)
-    graph, weightGnn, ignore, steps = MyGCN.GNNMatching(model, classifier, graph, 0.50, 0.0, verbose=False)
+    graph, weightGnn, ignore, steps = MyGCN.GNNMatching(model, classifier, graph, 0.5, 0.0, verbose=False)
     print("gnn steps ", steps )
     weightRes, pickedEdgeIndeces = gp.GreedyMatchingOrig(graph)
 

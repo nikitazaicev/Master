@@ -14,21 +14,29 @@ torch.manual_seed(123)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Current CUDA version: ", torch.version.cuda, "\n")
 
-graphs2, lineGraphs2, target2 = dl.LoadTrain(limit=200)
+
 graphs, converted_dataset, target = dl.LoadDataCustom()#limit=10)
-graphs.append(graphs2)
-target.append(target2)
-converted_dataset.append(lineGraphs2)
+graphs2, lineGraphs, target2 = dl.LoadTrain(limit=50)
+graphs = graphs + graphs2
+target = target + target2
+#converted_dataset = converted_dataset + lineGraphs2
 
 # print("Data stats")
 # print("----------------")
 # print(graphs[0])
+largest = 0
+largestEdges = 0
+for g in graphs:
+    if g.num_nodes > largest: largest = g.num_nodes 
+    if g.num_edges > largestEdges : largestEdges = g.num_edges
+
+print(f'Largest geraph = {(largest, largestEdges)}')    
 print(f'Total graphs = {len(graphs)}')
 # print(f'Nodes in graphs graph 0 = {graphs[0].num_nodes}, {len(graphs[0].x)}')
 # print(f'Edges in graphs graph 0 = {graphs[0].num_edges}, {len(graphs[0].edge_index[0])}')
 # print("-------------------\n")
 
-val_graphs, val_lineGraphs, val_y = dl.LoadVal(limit=1, doNormalize=True)
+
    
 #print("Saveing visualization file")
 #dl.VisualizeConverted(val_lineGraphs[0])
@@ -62,17 +70,17 @@ except Exception: print("No model found, training new model")
 torch.manual_seed(123)
 
 #loader = DataLoader(lineGraphs, batch_size=1, shuffle=True)
-loader = DataLoader(graphs, batch_size=20, shuffle=False)
-optimizer = torch.optim.Adam(list(model.parameters()) + list(classifier.parameters()), lr=0.0006)#, weight_decay=0.00008)
+loader = DataLoader(graphs, batch_size=1, shuffle=False)
+optimizer = torch.optim.Adam(list(model.parameters()) + list(classifier.parameters()), lr=0.0005)#, weight_decay=0.00008)
 #optimizer = torch.optim.Adam(list(classifier.parameters()), lr=0.0006)#, weight_decay=0.00008)
 classWeights = torch.FloatTensor([0.1,0.9]).to(device)
 criterion = torch.nn.CrossEntropyLoss(weight=classWeights)
 
 if not modelLoaded:
-    EPOCHS = 100
+    EPOCHS = 1000
+    model.train()
+    classifier.train()
     for epoch in range(EPOCHS):
-        model.train()
-        classifier.train()
         
         for graph in loader:
 
@@ -93,6 +101,8 @@ if not modelLoaded:
             print("DONE")
     print("Successfully finished training")    
     print("Saving model to disk")
+    model.eval()
+    classifier.eval()
     with open('data/MyModel.pkl', 'wb') as file: pickle.dump(model, file)
     with open('data/MyModelClass.pkl', 'wb') as file: pickle.dump(classifier, file)
     print("DONE")
@@ -102,22 +112,14 @@ print("STARING EVALUATION")
 print("-------------------")
 model.eval()
 classifier.eval()
-try:
-    with open('data/OptGreedDiffDataPaths.pkl', 'rb') as file:
-        matchCriteriaData = pickle.load(file)
-except Exception: matchCriteriaData = dict()
-filepaths = []
-for key in matchCriteriaData:
-    filepaths.append(key)
-    print("ADDING DATASET: ", key)
+
+# try:
+#     with open('data/OptGreedDiffDataPaths.pkl', 'rb') as file:
+#         matchCriteriaData = pickle.load(file)
+# except Exception: matchCriteriaData = dict()
+
     
-filepaths = ["data/Pajek/GD98_b/GD98_b.mtx"]
-
-#for graphId, filepath in enumerate(filepaths):
-#    graphId = 0
-#    val_graphs, val_lineGraphs, val_y = dl.LoadValGoodCase([filepath])
-
-#val_graphs, val_y = dl.WeightsExperiment(val_graphs[0])
+val_graphs, val_lineGraphs, val_y = dl.LoadVal(limit=1)
 for graphId, filepath in enumerate(val_graphs): #range(1,3):
     
     print("-------------------")

@@ -71,7 +71,8 @@ def CountExtraFeaturesOriginal(graph, adj):
     sums = torch.Tensor(sums).unsqueeze(1)
     maxs = torch.Tensor(maxs).unsqueeze(1)
     maxs2 = torch.Tensor(maxs2).unsqueeze(1)
-
+    
+    #return torch.cat((rels, diffs, sums), dim=-1) 
     return torch.cat((rels, diffs, sums, maxs, maxs2), dim=-1)
 
 def UpdateExtraFeatures(graph, adj, removedNodeIds):
@@ -121,9 +122,9 @@ def AugmentOriginalNodeFeatures(graph, undirected = True):
 
 def UpdateNodeFeatures(graph, adj, removedNodeIds):
     
-    UpdateDegree(graph, adj, removedNodeIds)
-    UpdateExtraFeatures(graph, adj, removedNodeIds)
-    
+    #UpdateDegree(graph, adj, removedNodeIds)
+    #UpdateExtraFeatures(graph, adj, removedNodeIds)
+    graph.x, adj = AugmentOriginalNodeFeatures(graph)
     return graph.x
 
 def UpdateDegree(graph, adj, removedNodeIds):

@@ -63,7 +63,7 @@ def LoadTrain(datasetname='MNIST', skipLine=True, limit=0, doNormalize = False):
     
     dataset = GNNBenchmarkDataset('data', datasetname, split="train", transform=TransformData())[:limit]
     
-    dataset = PreproccessOriginal(dataset,target,datasetname,doNormalize)
+    dataset = PreproccessOriginal(dataset,target,datasetname,True,doNormalize)
     
     converted_dataset = 0
     if not skipLine:
@@ -264,15 +264,14 @@ def LoadDataCustom(limit=0):
         
         file_name = f'data/customtrain/weights/{filename}.pkl'
         with open(file_name, 'rb') as file:
-            print(file_name, " loaded")
+            #print(file_name, " loaded")
             ws = pickle.load(file)
         
         graph = FromMMformat(mmformat, ws)
         
-
         data.append(graph)
         count += 1
-        if (count) % 10 == 0: print(f'graph{count}/{len(filenames[:limit])}')
+        if (count) % 50 == 0: print(f'graph{count}/{len(filenames[:limit])}')
         
     
     if os.path.exists('data/customtrain/target_data.pkl'):
@@ -280,10 +279,10 @@ def LoadDataCustom(limit=0):
         with open(file_name, 'rb') as file:
             print(file_name, " loaded")
             targetset = pickle.load(file)
-        file_name = 'data/customtrain/converted_dataset.pkl'
-        with open(file_name, 'rb') as file:
-            print(file_name, " loaded")
-            convertedset = pickle.load(file)
+    #file_name = 'data/customtrain/converted_dataset.pkl'
+    #with open(file_name, 'rb') as file:
+        #print(file_name, " loaded")
+        convertedset = 0 #pickle.load(file)
         
         target, converted, dataset = [],[],[]
         for i, g in enumerate(data):
@@ -408,13 +407,11 @@ def FromMMformat(graph, ws = None):
         if wmin < 0: new_weights -= (wmin-1)
         wmax = torch.max(new_weights, dim=0).values
         if wmin == wmax: 
-            print("Assigning random weights")
             new_weights = torch.rand((len(new_weights),1))
         new_weights = new_weights / wmax
         #new_weights = new_weights * 10
         new_weights = torch.cat((new_weights, new_weights),0)
     else: 
-        print("Loading existing weights")
         new_weights = ws  / 10
     
     original_graph.edge_attr = new_weights.flatten()

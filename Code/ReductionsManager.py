@@ -3,7 +3,14 @@ import torch_geometric.utils as u
 from MyDataLoader import Data
 import numpy as np
 import LineGraphConverter as lgc
+from typing import List, Optional, Tuple, Union
 
+import torch
+from torch import Tensor
+
+from torch_geometric.typing import OptTensor, PairTensor
+from torch_geometric.utils.mask import index_to_mask
+from torch_geometric.utils.num_nodes import maybe_num_nodes
 np.random.seed(123)
 torch.manual_seed(123)
 
@@ -63,6 +70,7 @@ def ApplyReductionRules(graph):
        
     #rule 1 dominating edge
     weightSum, wasReduced, pickedNodeIds = torch.tensor([0.0]).to(device), True, set()
+    pickedEdgeIds = set()
     while wasReduced and len(pickedNodeIds) < graph.num_nodes:
         wasReduced = False
         for i in range(len(graph.edge_index[0])):
@@ -112,11 +120,12 @@ def ApplyReductionRules(graph):
                 
                 pickedNodeIds.add(from_node)
                 pickedNodeIds.add(to_node)
+                pickedEdgeIds.add(i)
                 wasReduced = True
         
     #rule 2 ?
-
-    return ReduceGraphOriginal(graph, pickedNodeIds), weightSum.item()
+    graph.adj = GenerateAdjListNoIdx(graph)
+    return ReduceGraphOriginal(graph, pickedNodeIds), weightSum.item(), pickedEdgeIds
 
 def ReduceBestWeightsTable(graph, topWeights, deleteEdge, adj):
     pickedNodes = {graph.edge_index[0][deleteEdge].item(), graph.edge_index[1][deleteEdge].item()}
@@ -187,20 +196,71 @@ def ReduceGraph(original, graph, pickedNodeIds):
     reducedOrig.num_edges = len(reducedOrig.edge_index[0])
     assert((len(reducedOrig.edge_index[0])==graph.num_nodes))
     return reducedOrig, graph
+def index_to_mask(index: Tensor, size: Optional[int] = None) -> Tensor:
+    r"""Converts indices to a mask representation.
+
+    Args:
+        idx (Tensor): The indices.
+        size (int, optional). The size of the mask. If set to :obj:`None`, a
+            minimal sized output mask is returned.
+
+    Example:
+
+        >>> index = torch.tensor([1, 3, 5])
+        >>> index_to_mask(index)
+        tensor([False,  True, False,  True, False,  True])
+
+        >>> index_to_mask(index, size=7)
+        tensor([False,  True, False,  True, False,  True, False])
+    """
+    index = index.view(-1)
+    size = int(index.max()) + 1 if size is None else size
+    mask = index.new_zeros(size, dtype=torch.bool)
+    mask[index] = True
+    return mask
+def maybe_num_nodes(edge_index, num_nodes=None):
+    if num_nodes is not None:
+        return num_nodes
+    elif isinstance(edge_index, Tensor):
+        if is_torch_sparse_tensor(edge_index):
+            return max(edge_index.size(0), edge_index.size(1))
+        return int(edge_index.max()) + 1 if edge_index.numel() > 0 else 0
+    else:
+        return max(edge_index.size(0), edge_index.size(1))
+def is_torch_sparse_tensor(src):
+    r"""Returns :obj:`True` if the input :obj:`src` is a
+    :class:`torch.sparse.Tensor` (in any sparse layout).
+
+    Args:
+        src (Any): The input object to be checked.
+    """
+    if isinstance(src, Tensor):
+        if src.layout == torch.sparse_coo:
+            return True
+        if src.layout == torch.sparse_csr:
+            return True
+        if src.layout == torch.sparse_csc:
+            return True
+    return False    
 
 def ReduceGraphOriginal(originalG, pickedNodeIds):  
     reducedOrig = Data()
     reducedOrig.x = lgc.UpdateNodeFeatures(originalG, originalG.adj, pickedNodeIds).to(device)
     subset = [x for x in range(originalG.num_nodes) if x not in pickedNodeIds]
     subset = torch.IntTensor(subset).to(device)
-    new_edge_index, edge_weight = u.subgraph(subset, originalG.edge_index, originalG.edge_weight, relabel_nodes = True)    
+    
+    new_edge_index, edge_weight = u.subgraph(subset, 
+                                             originalG.edge_index, 
+                                             originalG.edge_weight, 
+                                             num_nodes=originalG.num_nodes, 
+                                             relabel_nodes = True)    
+    
     reducedOrig.edge_index = new_edge_index
     reducedOrig.edge_weight = edge_weight
     reducedOrig.edge_attr = edge_weight.flatten()
     reducedOrig.num_nodes = originalG.num_nodes-len(pickedNodeIds)
     reducedOrig.num_edges = len(reducedOrig.edge_index[0])
     reducedOrig.x = reducedOrig.x[subset]
-    #reducedOrig.x = lgc.AugmentOriginalNodeFeatures(reducedOrig).to(device)
     reducedOrig.adj = GenerateAdjListNoIdx(reducedOrig)
     
     assert(len(reducedOrig.edge_weight)==len(reducedOrig.edge_index[0]))
