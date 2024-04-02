@@ -1,11 +1,10 @@
 \chapter{Results}
 
-This chapter lists the temporary results from the experiments and thoughts on what it meant for the model, as well as the final results. All the experiments have been done on the same machine with: 11th Gen Intel(R) Core(TM) i7-11700K 3.60GHz 8-core CPU, 16 GB RAM and NVIDIA RTX 3080Ti graphics card.
+This chapter will go through the whole process of making, training and testing the \gls{gnn} step by step, from first iterations of the very simple model to more fine tuned models and other methods that were tested. Reasoning and explanations for the choices and changes made during the process will also be given along the way. Finally, best results that were achieved will be presented. 
+
+All the experiments have been done on the same machine with: 11th Gen Intel(R) Core(TM) i7-11700K 3.60GHz 8-core CPU, 16 GB RAM and NVIDIA RTX 3080Ti graphics card.
 
 \section{Progress}
-
-In this section we will go throught the whole proccess step by step, from first iterations of the very simple model to more fine tuned models and other methods that were tested.
-
 \subsection{Simple line graph model}
 
 First step was to try the simplest model with most of the hyperparameters set to default and train it on a smaller scale. First model had 2 layers and 64 neurons each. Initially due to majority of nodes being not included in the matching, the model learned to set all nodes to be dropped and still get a rather high accuracy score. This was resolved by adding class weights as a training parameter. Class weights tell the model how important each class is. By assigning the nodes that go into matching a value of 0.9 and the ones that do not 0.1. The problem seemed to be resolved.
@@ -54,8 +53,8 @@ Edge classification showed a little bit worse results on average than the line g
 
 \begin{figure}[H]
     \centering
-    \includegraphics[scale=1.0]{figures/MNISTtrainSAGE10}
-    \caption{MNIST trained model performance on sage10 graph}
+    \includegraphics[scale=1.0]{figures/MNISTtrainCAGE10}
+    \caption{MNIST trained model performance on cage10 graph}
     \label{model performance}
 \end{figure}
 
@@ -81,8 +80,8 @@ As partially expected model trained using custom dataset performed noticeably wo
 
 \begin{figure}[H]
     \centering
-    \includegraphics[scale=1.0]{figures/CUSTOMtrainSAGE10}
-    \caption{CUSTOM trained model performance on sage10 graph}
+    \includegraphics[scale=1.0]{figures/CUSTOMtrainCAGE10}
+    \caption{CUSTOM trained model performance on cage10 graph}
     \label{model performance}
 \end{figure}
 
@@ -114,11 +113,11 @@ Reduction rules are used in algorithms to cut down the size of the graphs by rem
 
 A couple different graphs were used to test if the reduction helps and whether the model could find reducible nodes on its own. On some cases there were graphs that had 0 reducible edges, but in other cases such edges made around 5\% of the total amount. The model however did not seem to pick any of those edges and adding reduction as a preprocessing step did improve the results by a small margin. Since the reduction is based on the largest edges of the nodes it would make sense to add these node features to the model. 
 New model was trained with 2 additional node features: 1st largest weight, 2nd largest weight for each node.
-Adding such features could have in theory helped the model to find reducible nodes, but after training the new model with the new node features the result did not improve.
+Adding such features could in theory have helped the model to find reducible nodes, but after training the new model with the new node features the result did not improve.
 
 \subsection{Matching threshold}
 
-Adjusting the threshold for picking the edges was another thing to test as the previous results suggested. The model was initialy set to only consider edges that it predicted to have a larger than 50\% chance of being part of the solution. This mathing treshold can be adjusted to for example only pick the edges with 90\% probabilty, this might focus on the edges that have large impact on the total result, but would be otherwise ignored by a greedy algorithm. Additionaly it can be worth testing removal of edges with too low probabilty to see if model can find edges that impact the result negatively.
+Adjusting the threshold for picking the edges was another thing to test as the previous results suggested. The model was initialy set to only consider edges that it predicted to have a larger than 50\% chance of being part of the solution. This mathing treshold can be adjusted to for example only pick the edges with 90\% probabilty, this can help focus the model on the edges that have large impact on the total result, but would be otherwise ignored by a greedy algorithm. Additionaly it can be worth testing removal of edges with low probabilties to see if model can find edges that if picked inhibit the overall result.
 
 \begin{figure}[H]
     \centering
@@ -131,11 +130,12 @@ The higher matching threshold does seem to improve the performance, but not enou
 
 \section{Final results}
 
-With time and ideas for further improvements starting to end, the final best model was tested on increasingly larger graphs from different sources. The final parameters of the model were:
+With time remaining and ideas for further improvements starting to end, the final best model was tested on increasingly larger graphs from different sources. The final parameters of the model were:
 
 \begin{enumerate}
 \item Learning rate = 0.001
-\item Epochss = 100
+\item Epochs = 100
+\item Mini-batch size = 1
 \item Network depth and width = 4 layers, 640 neurons each
 \item Class weights = 0.1 and 0.9 for dropped and picked edges respectively
 \item Weight decay = 0
@@ -158,9 +158,9 @@ With time and ideas for further improvements starting to end, the final best mod
 
 Lets summarize the end results based on the main criterias.
 \begin{itemize}
-\item Performance: The total weight the models output seems to be rather stable at around 90\% of what greedy algorithm produces regardless of the size of the graph. It seems to be rather challenging for the model to beat the greedy appreach when in most cases in makes up around 90-95\% of the total weight possible.
-\item Running time: An exception in the sense that the time is shown in comparison to the time it takes to find the optimal solution. As expected the benefit of the using \gls{gnn} can be seen as the size of the graphs increases. Smaller graphs take more time for the model to solve due to the overhead computations needed, but as the graphs grow the running time can get as small as 3\% of the Blossom algorithm.
-\item Remaineder: In some cases the reason for the total weight being close to the greedy is the fact that the remainder makes up a large part of the graph, but it is not a consistent trend and neither does it depend on the size of the graph. There are cases with equally good results where the remainder is below 10\% of the total graph. The fact that some graphs leave such a big remainder indicates that the training dataset is not good enough and the model is not trained well enough to handle such graphs.
+\item Performance: The total weight the model's output seems to be rather stable at around 90\% of what greedy algorithm produces regardless of the size of the graph. It seems to be rather challenging for the model to beat the greedy approach when in most cases in makes up around 90-95\% of the total weight possible.
+\item Running time: An exception in the sense that the time is shown in comparison to the time it takes to find the optimal solution. Reason for that is the fact that the model is always slower than the greedy algorithm. As expected the benefit of using the \gls{gnn} can be seen as the size of the graphs increases. Smaller graphs take more time for the model to solve due to the overhead computations needed, but as the graphs grow the running time can get as small as 3\% of the Blossom algorithm.
+\item Remainder: In some cases the reason for the total weight being close to the greedy is the fact that the remainder makes up a large part of the graph, but it is not a consistent trend and neither does it depend on the size of the graph. There are cases with equally good results where the remainder is below 10\% of the total graph. The fact that some graphs leave such a big remainder indicates that the training dataset is not good enough and the model is not trained well enough to handle such graphs.
 \end{itemize}
 
 \subsection{Weakness of greedy algorithm}
