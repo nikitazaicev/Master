@@ -52,7 +52,8 @@ def TransformData():
     return T.Compose([NormalizeFeatures(),ToUndirected()])
 
 def LoadTrain(datasetname='MNIST', skipLine=True, limit=0, doNormalize = False):
-    if not os.path.exists('data/train/target_data.pkl'): LoadData(datasetname,limit)
+    if (not os.path.exists('data/train/target_data.pkl')
+    or (not os.path.exists('data/train/converted_dataset.pkl') and not skipLine)): LoadData(datasetname,limit)
     file_name = 'data/train/target_data.pkl'
     with open(file_name, 'rb') as file:
         print(file_name, " loaded")
@@ -62,8 +63,8 @@ def LoadTrain(datasetname='MNIST', skipLine=True, limit=0, doNormalize = False):
     if limit > 0: target = target[:limit]   
     
     dataset = GNNBenchmarkDataset('data', datasetname, split="train", transform=TransformData())[:limit]
-    
-    dataset = PreproccessOriginal(dataset,target,datasetname,True,doNormalize)
+    undirected = False
+    dataset = PreproccessOriginal(dataset,target,datasetname,undirected,doNormalize)
     
     converted_dataset = 0
     if not skipLine:
@@ -75,7 +76,10 @@ def LoadTrain(datasetname='MNIST', skipLine=True, limit=0, doNormalize = False):
     return dataset, converted_dataset, target
 
 def LoadVal(datasetname='MNIST', skipLine=True, limit=0, doNormalize = False):
-    if not os.path.exists('data/val/target_data.pkl'): LoadData(datasetname)
+    #if not os.path.exists('data/val/target_data.pkl'): 
+    print("YOYOYYO TEST REMOVE")
+    LoadData(datasetname, limit=20)
+
     file_name = 'data/val/target_data.pkl'
     with open(file_name, 'rb') as file:
         print(file_name, " loaded")
@@ -190,13 +194,12 @@ def ProccessData(dataset, datasetname, undirected = True, skipLine = False):
 
     target = []
     converted = []
-    original = []
     print("Blossom matching and line graph convertion")
     for idx, dataitem in enumerate(dataset):
         blossominput, uniqueEdges = [], set()
         for idx2 in range(len(dataitem.edge_index[0])):
             (f,t) = (dataitem.edge_index[0][idx2].item(), dataitem.edge_index[1][idx2].item())
-            w = dataitem.edge_attr[idx2].item()
+            w = dataitem.edge_weight[idx2][0].item()
             if (f,t) not in uniqueEdges and (t,f) not in uniqueEdges:
                 blossominput.append((f,t,w))
                 uniqueEdges.add((f,t))
@@ -208,8 +211,7 @@ def ProccessData(dataset, datasetname, undirected = True, skipLine = False):
             continue
         target.append(targetClasses)
         dataitem.y = targetClasses
-        original.append(dataitem)
-        #original[idx].y = targetClasses
+        original[idx].y = targetClasses
         line_graph = 0
         if not skipLine: 
             line_graph = lgc.ToLineGraph(dataitem, verbose = False)
@@ -324,13 +326,13 @@ def AssignTargetClasses(graph, target):
         from_node = graph.edge_index[0][j].item()
         to_node = graph.edge_index[1][j].item()
 
-        #if (from_node,to_node) in uniqueEdges: continue
+        if (from_node,to_node) in uniqueEdges: continue
 
         if target[from_node] == to_node or target[to_node] == from_node:
             classes.append(1)
         else:
             classes.append(0)
-        #uniqueEdges.add((from_node,to_node))
+        uniqueEdges.add((to_node,from_node))
     y = torch.LongTensor(classes).to(device)
     graph.y = y
     return y

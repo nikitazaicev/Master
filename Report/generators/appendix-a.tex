@@ -1,1 +1,64 @@
 \chapter{Code examples}
+
+Simple GCN in Python example:
+\begin{lstlisting}[language=Python]
+class MyGCN(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = GCNConv(5, 640) # 5 features per each node, initialy 1
+        self.conv2 = GCNConv(640, 640)
+        self.lin = Linear(640, 2) # 2 classes 
+
+    def forward(self, data):        
+        x, edge_index, edge_weight = data.x, data.edge_index, data.edge_weight
+        
+        x = self.conv1(x, edge_index, edge_weight)
+        identity = F.relu(x)
+        
+        x = self.conv2(x, edge_index, edge_weight)
+        x = F.relu(x)
+        
+        return F.log_softmax(x, dim=1)    
+\end{lstlisting}
+
+Edge classification example in Python
+\begin{lstlisting}[language=Python]
+
+class MyGCNEdge(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = GCNConv(7, 640)
+        self.conv2 = GCNConv(640, 640)
+        self.encode = Linear(640, 80) # 80 output features per node
+
+    def forward(self, data):        
+        x, edge_index, edge_weight = data.x, data.edge_index, data.edge_weight
+
+        x = self.conv1(x, edge_index, edge_weight)
+        identity = F.relu(x)
+        
+        x = self.conv2(x, edge_index, edge_weight)
+        x = F.relu(x)
+        
+        x = self.encode(x)
+        return x
+
+class EdgeClassifier(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.lin1 = Linear(160, 320) # 80 * 2 features since input is 2 nodes.
+        self.lin2 = Linear(320, 2)
+
+    def encodeEdges(self, nodeEncode, graph):
+        x_src, x_dst = nodeEncode[graph.edge_index[0]], nodeEncode[graph.edge_index[1]]
+        edgeEncode = torch.cat([x_src, x_dst], dim=-1)        
+        return edgeEncode
+
+    def forward(self, edgeEncode):        
+        x = self.lin1(edgeEncode)
+        x = F.relu(x)
+        
+        x = self.lin2(x)
+        return F.log_softmax(x, dim=1)
+
+\end{lstlisting}

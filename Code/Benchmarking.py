@@ -15,22 +15,22 @@ random.seed(123)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Current CUDA version: ", torch.version.cuda, "\n")
 
-try:
-    #with open('data/MNISTTRAINED/MyModel.pkl', 'rb') as file:
-    #with open('data/CUSTOMTRAINED/MyModel.pkl', 'rb') as file:
-    with open('data/tempMyModel.pkl', 'rb') as file:
-        print("Loading Model")
-        model = pickle.load(file).to(device)
-    #with open('data/MNISTTRAINED/MyModelClass.pkl', 'rb') as file:
-    #with open('data/CUSTOMTRAINED/MyModelClass.pkl', 'rb') as file:
-    with open('data/tempMyModelClass.pkl', 'rb') as file:
-        classifier = pickle.load(file).to(device) 
-        modelLoaded = True
-except Exception: print("No model found. EXIT")
-model.eval()
-classifier.eval()
+# try:
+#     #with open('data/MNISTTRAINED/MyModel.pkl', 'rb') as file:
+#     #with open('data/CUSTOMTRAINED/MyModel.pkl', 'rb') as file:
+#     with open('data/tempMyModel.pkl', 'rb') as file:
+#         print("Loading Model")
+#         model = pickle.load(file).to(device)
+#     #with open('data/MNISTTRAINED/MyModelClass.pkl', 'rb') as file:
+#     #with open('data/CUSTOMTRAINED/MyModelClass.pkl', 'rb') as file:
+#     with open('data/tempMyModelClass.pkl', 'rb') as file:
+#         classifier = pickle.load(file).to(device) 
+#         modelLoaded = True
+# except Exception: print("No model found. EXIT")
+# model.eval()
+# classifier.eval()
 
-graphs, converted_dataset, target = dl.LoadVal(limit=100)
+graphs, converted_dataset, target = dl.LoadVal(limit=20)
 
 #graphs, converted_dataset, target = dl.LoadTrain(limit=9, doNormalize=False)
 
@@ -92,19 +92,20 @@ for idx, graph in enumerate(graphs):
     timeTotal = time.time() - start_time
     resultsGreedy.append([("TIME", timeTotal),("WEIGHT", weightGreedy)])
     
-    start_time = time.time()
+    #start_time = time.time()
     #graph.x = lgc.AugmentOriginalNodeFeatures(graph)
-    graph = graph.to(device)
-    graph, weightGnn, ignore, steps = MyGCN.GNNMatching(model, classifier, graph, 0.5, 0.0, verbose=False)
-    print("gnn steps ", steps )
-    weightRes, pickedEdgeIndeces = gp.GreedyMatchingOrig(graph)
+    # graph = graph.to(device)
+    # graph, weightGnn, ignore, steps = MyGCN.GNNMatching(model, classifier, graph, 0.5, 0.0, verbose=False)
+    # print("gnn steps ", steps )
+    # weightRes, pickedEdgeIndeces = gp.GreedyMatchingOrig(graph)
 
-    weightSum += weightGnn
-    weightSum += weightRes
-    weightResDif = weightRes/weightSum
+    # weightSum += weightGnn
+    # weightSum += weightRes
+    # weightResDif = weightRes/weightSum
 
-    timeTotal = time.time() - start_time
-    resultsGNN.append([("TIME", timeTotal),("WEIGHT", weightSum),("Gnn Res weight Diff", weightResDif)])
+    # timeTotal = time.time() - start_time
+    # resultsGNN.append([("TIME", timeTotal),("WEIGHT", weightSum),("Gnn Res weight Diff", weightResDif)])
+    resultsGNN.append([("TIME", 1),("WEIGHT", 1),("Gnn Res weight Diff", 1)])
     
 avgTimeGnn, avgWeightGnn, avgTimeGreed, avgWeightGreed, GnnResDif, weightResDif = 0,0,0,0,0,0
 avgTimeOpt, avgWeightOpt = 0,0

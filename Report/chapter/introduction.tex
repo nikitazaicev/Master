@@ -1,18 +1,23 @@
 \chapter{Introduction}
 
-This chapter is an introduction that explains the goals and reasons for this work.
+This chapter is an introduction that explains the goals and motivation for this work.
 
 \section{Goal}
 
-\gls{ml} and Neural Networks have shown to be extremely potent and versatile in solving vast variety of problems across different fields. One research field that has been popular and challenging in the last few years is \gls{co}. \gls{co} includes problems such as \gls{mis} and \gls{mwm}. Such problems can be viewed in the context of graphs. \gls{gnn} is a subclass of \gls{nn}s designed specifically for solving problems related to graphs, but there are some problems that have not yet been solved efficiently with \gls{gnn}s. 
+One of the most fundamental concepts in machine learning is classification. In many cases, we can categorize data into separate subclasses based on its features. As a simplified example, apples and pears can be classified by their distinct shapes. Different variations of such classification problems occur across many scientific fields and machine learning has been shown to be a potent tool to solve such problems. Machine learning includes a variety of statistical methods for solving classification problems. One such method is neural networks. A popular example of neural network application is recognition of handwritten digits \cite{digitrecognition}, where one can think of each pixel in an image as a feature that a neural network can use to classify the digit on the image.
+Examples of classification problems that can be solved using neural networks can be found across a variety of fields including: feature based classification of Iris plants \cite{swain2012approach}, image recognition for classification of cholera and malaria pathogens \cite{TRAORE2018257} and credit card fraud detection \cite{cardfraud}. For such classification problems, input data often has an expected structure. Input features such as, for example, image pixels are often expected to be of a certain size or are preprocessed accordingly. The neural networks have, however, shown promising results when dealing with unstructured data such as input of varying length in the form of text or video. Some well known examples are: text generation for the popular chatbot “ChatGPT” \cite{RAY2023121}, photorealistic text-to-image synthesis \cite{Liao2022CVPR} or self-driving cars \cite{bojarski2016end}. Another example of unstructured data is a graph. As an analogy, a picture can be represented as a grid graph where each pixel is connected to the pixels it is surrounded by. Such a graph would have a set number of neighbours and a set width and height. A simple graph, however, does not have such limitations and each element can have a varying number of neighbours as well as an variable width and height. 
 
-The main goal for this project is to: "Find out whether a \gls{gnn} can outperform approximation algorithms such as greedy in solving \gls{mwm} problem. 
+\gls{co} is a field of study that often deals with algorithmic problems related to graphs and has been a growing, yet challenging research topic in machine learning for the last few years. \gls{co} includes graph problems such as \gls{mis} and \gls{mwm}, with \gls{mwm} being the main topic of this work. In simple terms, \gls{mwm} problem requires to match together pairs of objects such that the total weight is maximized, given a list of all the possible pairing combinations with weights assigned to them. As a simplified example, one can view the problem in the context of buyers and sellers, where some buyers want to buy items from sellers for a price. If a seller has the item available, then they can be matched together and the weight of that pair represents the price of the item. Then one can either maximize or minimize the total price for all the sellers or buyers respectively. \gls{mwm} solvers are also used in larger algorithms. To solve algorithmic problems related to graphs, a specific subclass of neural networks has been designed called \gls{gnn}s. However, there are still problems that have not yet been solved efficiently with \gls{gnn}s. 
 
-\section{Reason}
+The main goal for this project is to: “Find out whether a \gls{gnn} can outperform approximation algorithms such as greedy in solving \gls{mwm} problem”. 
 
-Previous section describes "what" is this work about. Now lets briefly discuss "why" do this in the first place. The idea is rather simple. There are 2 types of algorithms in general: exact and approximate. The exact algorithms for \gls{mwm} already exist, but the down side of such algorithms is their speed. The slower nature of exact algorithms is one of the reasons why approximation algorithms are used in some cases. The hope is that  \gls{gnn} can potantialy squeeze in between the approximation and exact algorithms in terms of both time and accuracy.
+\section{Motivation}
 
-In short, the reason is: "There can be a machine learning based algorithm that gives better results than existing approximation algorithms"
+The previous section describes “what” this work is about. Now let's briefly discuss “why” do this in the first place. The idea is rather simple. There are two types of algorithms in general: exact and approximate. Exact algorithms guarantee that the found solution is optimal and correct, meaning that there cannot be a better solution, although several equally good solutions might exist. Approximation algorithms are heuristic techniques that do not aim for perfect optimalization, but rather focus on practical approaches that give sufficient results for the required task. Such algorithms do not guarantee the best possible solution, but a close one with a minimum precision. Similarly, machine learning and neural networks also fall into the category of heuristics.
+
+The exact algorithms for \gls{mwm} already exist, but the downside of such algorithms is their speed. The fastest algorithm is due to Edmonds and runs in polynomial time $O(|V|^{2} |E| )$ \cite{runtimeBlossomWiki}, where $|V|$ denotes the number of nodes in a graph and $|E|$ denotes the number of edges. There are several approximation algorithms for \gls{mwm}. One of the most simple ones is a weight based greedy approximation algorithm that matches pairs based on the their weights sorted in descending order. Such algorithm runs in time $O(|E| log(|E|))$ with the main factor being the sorting time. The slower nature of exact algorithms is the reason why approximation algorithms are used in some cases. The hope is that a \gls{gnn} model can potentially squeeze in between the approximation and exact algorithms in terms of both time and accuracy.
+
+In short, the motivation is: “There can be a machine learning based algorithm that gives better results than existing approximation algorithms”
 
 \section{Project structure}
 
@@ -22,22 +27,22 @@ The rest of this document has the following structure:
 
 \item Background:
 
-This Chapter will briefly touch the history, applications and impact of machine learning and go through core concepts and ideas behind machine learning and neural networks. Relevant information about \gls{co} and relevant algorithms will also be included here.
+This Chapter briefly outlines the history, applications and impact of machine learning and goes through core concepts and ideas behind machine learning, neural networks and graph neural networks. Relevant information about \gls{co} and algorithms is included here.
 
 \item Methodology and Data:
 
-This Chapter will focus on how the research was done and also explain core concepts of \gls{nn}s and the general procedure of training a \gls{nn}. Then the specifics of this case will be discussed together with the main challenges. The progress made step by step and the reasoning behind changes and choices made along the way will be shown. The chapter will also analyze the data used for training the model and evaluating results along with justification for the chosen data.
+This Chapter focuses on how the research was done and also explains core concepts of \gls{nn}s and the general procedure of training a \gls{nn}. Then the specifics of this case are discussed together with the main challenges. The progress made step by step and the reasoning behind changes and choices made along the way are shown. The chapter also analyzes the data used for training the model and evaluating results, along with justification for the chosen data.
 
 \item Results:
 
-This Chapter will focus on temporary results produced during the reseach and explain how these results affected the further decisions. Finally the chapter will be concluded by analyzing the final results and comparing them with the expectations.
+This Chapter focuses on temporary results produced during the research and explains how these results affected further decisions. Finally, the chapter is concluded by analyzing the final results and comparing them with expectations.
 
 \item Conclusion:
 
-Here the conclusion for this project will be drawn regarding whether the results gave any meaningfull insight and what future work can be done for improvements.
+Here the conclusion for this project is drawn regarding whether the results gave any meaningful insight and what future work can be done for improvements.
 
 \end{enumerate}
 
 \subsection{\gls{git}}
 
-The whole project can be seen here: \url{https://github.com/nikitazaicev/Master}
+The code used in this project can be accesssed at: \url{https://github.com/nikitazaicev/Master}. The information about the used datasets is given in the \hyperref[sec:dataanalysis]{Data analysis chapter}

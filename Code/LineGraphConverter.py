@@ -40,8 +40,8 @@ def CountExtraFeaturesOriginal(graph, adj):
     rels = [0.0] * num_nodes
     diffs = [0.0] * num_nodes
     sums = [0.0] * num_nodes
-    maxs = [0.0] * num_nodes
-    maxs2 = [0.0] * num_nodes
+    #maxs = [0.0] * num_nodes
+    #maxs2 = [0.0] * num_nodes
     
     for i in range(len(graph.edge_index[0])):
         from_node = graph.edge_index[0][i]
@@ -50,14 +50,14 @@ def CountExtraFeaturesOriginal(graph, adj):
         sums[from_node] = sums[from_node] + w
         sums[to_node] = sums[to_node] + w
         
-        best = maxs[from_node]
-        if best < w: 
-            maxs2[from_node] = best
-            maxs[from_node] = w 
-        best = maxs[to_node]
-        if best < w: 
-            maxs2[to_node] = best
-            maxs[to_node] = w 
+        # best = maxs[from_node]
+        # if best < w: 
+        #     maxs2[from_node] = best
+        #     maxs[from_node] = w 
+        # best = maxs[to_node]
+        # if best < w: 
+        #     maxs2[to_node] = best
+        #     maxs[to_node] = w 
 
     for i, neighbors in enumerate(adj):
         neighborSums = 0
@@ -69,11 +69,11 @@ def CountExtraFeaturesOriginal(graph, adj):
     rels = torch.Tensor(rels).unsqueeze(1)
     diffs = torch.Tensor(diffs).unsqueeze(1)
     sums = torch.Tensor(sums).unsqueeze(1)
-    maxs = torch.Tensor(maxs).unsqueeze(1)
-    maxs2 = torch.Tensor(maxs2).unsqueeze(1)
+    #maxs = torch.Tensor(maxs).unsqueeze(1)
+    #maxs2 = torch.Tensor(maxs2).unsqueeze(1)
     
-    #return torch.cat((rels, diffs, sums), dim=-1) 
-    return torch.cat((rels, diffs, sums, maxs, maxs2), dim=-1)
+    return torch.cat((rels, diffs, sums), dim=-1) 
+    #return torch.cat((rels, diffs, sums, maxs, maxs2), dim=-1)
 
 def UpdateExtraFeatures(graph, adj, removedNodeIds):
     for nodeId in removedNodeIds:
@@ -103,10 +103,10 @@ def AugmentNodeFeatures(graph, adj, undirected = True):
     graph.x = graph.node_features.resize(len(graph.node_features),1)
     graph.node_features = graph.x 
     
-    degs = CountDegree(graph, adj, undirected)
-    graph.x = torch.cat((graph.x, degs), dim=-1)
-    feats = CountExtraFeatures(graph, adj)
-    graph.x = torch.cat((graph.x, feats), dim=-1)
+    #degs = CountDegree(graph, adj, undirected)
+    #graph.x = torch.cat((graph.x, degs), dim=-1)
+    #feats = CountExtraFeatures(graph, adj)
+    #graph.x = torch.cat((graph.x, feats), dim=-1)
     return graph.x
 
 def AugmentOriginalNodeFeatures(graph, undirected = True):
@@ -114,17 +114,17 @@ def AugmentOriginalNodeFeatures(graph, undirected = True):
     graph.x = torch.ones([graph.num_nodes,1])
     graph.node_features = graph.x
     
-    degs = CountDegree(graph, adj, undirected)
-    graph.x = torch.cat((graph.x, degs), dim=-1)
-    feats = CountExtraFeaturesOriginal(graph, adj)
-    graph.x = torch.cat((graph.x, feats), dim=-1)
+    #degs = CountDegree(graph, adj, undirected)
+    #graph.x = torch.cat((graph.x, degs), dim=-1)
+    #feats = CountExtraFeaturesOriginal(graph, adj)
+    #graph.x = torch.cat((graph.x, feats), dim=-1)
     return graph.x, adj 
 
 def UpdateNodeFeatures(graph, adj, removedNodeIds):
     
-    #UpdateDegree(graph, adj, removedNodeIds)
-    #UpdateExtraFeatures(graph, adj, removedNodeIds)
-    graph.x, adj = AugmentOriginalNodeFeatures(graph)
+    UpdateDegree(graph, adj, removedNodeIds)
+    UpdateExtraFeatures(graph, adj, removedNodeIds)
+    #graph.x, adj = AugmentOriginalNodeFeatures(graph)
     return graph.x
 
 def UpdateDegree(graph, adj, removedNodeIds):
@@ -218,11 +218,12 @@ def ToLineGraph(graph, verbose = False):
     graph.edge_weight = new_edgeWeights.flatten()
     graph.edge_attr = new_edgeWeights.flatten()
     
+    
     graph.pos = None
     graph.num_nodes = len(graph.node_features) 
     graph.num_edges = len(graph.edge_attr)
-    
-    AugmentNodeFeatures(graph)
+    adj = GenerateAdjList(graph)
+    AugmentNodeFeatures(graph, adj)
     
     assert(len(graph.edge_index[0])==len(graph.edge_weight))
     assert(graph.num_nodes==len(graph.x)) 
@@ -231,3 +232,35 @@ def ToLineGraph(graph, verbose = False):
     return graph
                 
         
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -44,8 +44,8 @@ except Exception: print("No model found. EXIT")
 #graphs, converted_dataset, target = dl.LoadTest(limit=10)
 
 #gr = 'Gset'
-gr = 'Pajek'
-#gr = 'Newman'
+#gr = 'Pajek'
+gr = 'Newman'
 #gr = 'vanHeukelum'
 dataset = ss.search(group = gr, 
                     #kind='Directed Weighted Graph', 
@@ -141,7 +141,7 @@ for filename in filenames:
     resultsGreedy.append([("TIME", timeTotal),("WEIGHT", weightGreedy)])
     
     start_time = time.time()
-    graph, weightGnn, pickedNodes, iterations = MyGCN.GNNMatching(model, classifier, graph.to(device), 0.50, 0.0, test = reductionNodeIds)
+    graph, weightGnn, pickedNodes, iterations = MyGCN.GNNMatching(model, classifier, graph.to(device), 0.50, 0.0)
     
     print("GNN", weightGnn)
     print("GNN iters", iterations)

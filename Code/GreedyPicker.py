@@ -52,6 +52,7 @@ def GreedyMatchingLine(graph):
     totalWeight = 0
 
     pickedEdgeIndeces = set()
+
     sorted_edges = torch.sort(graph.x[:, [0]].flatten(), descending=True)    
     
     adj = rm.GenerateAdjList(graph)

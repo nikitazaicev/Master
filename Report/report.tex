@@ -6,9 +6,20 @@
 \documentclass[12pt,oneside,final,a4paper]{report}
 \usepackage{generators/imports}
 \usepackage{listings}
-\usepackage{algorithm2e}
-\usepackage{algorithmicx}
+\usepackage{algpseudocode}
 \usepackage{comment}
+\usepackage{algorithm}
+\usepackage{url}
+
+\newcommand*{\captionsource}[2]{%
+  \caption[{#1}]{%
+    #1%
+    \\\hspace{\linewidth}%
+    \textbf{Source:} #2%
+  }%
+}
+
+
 \include{generators/glossary}
 \begin{document}
 \include{generators/frontpage} % This is the titlepage
