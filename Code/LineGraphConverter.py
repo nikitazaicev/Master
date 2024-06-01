@@ -103,21 +103,22 @@ def AugmentNodeFeatures(graph, adj, undirected = True):
     graph.x = graph.node_features.resize(len(graph.node_features),1)
     graph.node_features = graph.x 
     
-    #degs = CountDegree(graph, adj, undirected)
-    #graph.x = torch.cat((graph.x, degs), dim=-1)
-    #feats = CountExtraFeatures(graph, adj)
-    #graph.x = torch.cat((graph.x, feats), dim=-1)
+    degs = CountDegree(graph, adj, undirected)
+    graph.x = torch.cat((graph.x, degs), dim=-1)
+    feats = CountExtraFeatures(graph, adj)
+    graph.x = torch.cat((graph.x, feats), dim=-1)
     return graph.x
 
-def AugmentOriginalNodeFeatures(graph, undirected = True):
+def AugmentOriginalNodeFeatures(graph, undirected = False):
     adj = GenerateAdjList(graph)
     graph.x = torch.ones([graph.num_nodes,1])
     graph.node_features = graph.x
     
-    #degs = CountDegree(graph, adj, undirected)
-    #graph.x = torch.cat((graph.x, degs), dim=-1)
-    #feats = CountExtraFeaturesOriginal(graph, adj)
-    #graph.x = torch.cat((graph.x, feats), dim=-1)
+    degs = CountDegree(graph, adj, undirected)
+
+    graph.x = torch.cat((graph.x, degs), dim=-1)
+    feats = CountExtraFeaturesOriginal(graph, adj)
+    graph.x = torch.cat((graph.x, feats), dim=-1)
     return graph.x, adj 
 
 def UpdateNodeFeatures(graph, adj, removedNodeIds):

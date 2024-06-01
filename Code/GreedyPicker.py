@@ -20,19 +20,19 @@ def GreedyMatchingOrig(graph, prevEdgeIndeces=None, verbose=False):
         from_node = edge_index[0][original_index].item()
         to_node = edge_index[1][original_index].item()
         if (from_node not in takenNodes 
-            and to_node not in takenNodes
-            and original_index not in pickedEdgeIndeces):
+            and to_node not in takenNodes):
             takenNodes.add(from_node)
             takenNodes.add(to_node)
+            #print("adding: ", (from_node,to_node,edge_weights[original_index].item()))
             pickedEdgeIndeces.add(original_index)
             pickedPairs.add((from_node,to_node))
             totalWeight += edge_weights[original_index].item()
-        
-    for i in range(len(graph.edge_index[0])):
-        from_node = graph.edge_index[0][i].item()
-        to_node = graph.edge_index[1][i].item()
-        if (from_node, to_node) in pickedPairs or (to_node, from_node) in pickedPairs: 
-            pickedEdgeIndeces.add(i)    
+    #exit()    
+    # for i in range(len(graph.edge_index[0])):
+    #     from_node = graph.edge_index[0][i].item()
+    #     to_node = graph.edge_index[1][i].item()
+    #     if (from_node, to_node) in pickedPairs or (to_node, from_node) in pickedPairs: 
+    #         pickedEdgeIndeces.add(i)    
             
     if verbose: print(f"Greedy matching total weight result = {totalWeight:.4f}")
     if verbose: print(f"In total {len(pickedEdgeIndeces)} out of {len(edge_weights)} edges were picked")

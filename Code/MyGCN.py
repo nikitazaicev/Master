@@ -37,11 +37,13 @@ class MyGCN(torch.nn.Module):
 class EdgeClassifier(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.lin1 = Linear(161, 32)
-        #self.lin2 = Linear(32, 32)
-        #self.lin4 = Linear(32, 32)
-        #self.lin5 = Linear(32, 32)
-        self.lin3 = Linear(32, 2)
+        self.lin1 = Linear(161, 320)
+        self.lin2 = Linear(320, 320)
+        self.lin4 = Linear(320, 320)
+        self.lin5 = Linear(320, 320)
+        self.lin6 = Linear(320, 320)
+        self.lin7 = Linear(320, 320)
+        self.lin3 = Linear(320, 2)
     
     def embedEdges(self, nodeEmbed, graph):
         x_src, x_dst = nodeEmbed[graph.edge_index[0]], nodeEmbed[graph.edge_index[1]]
@@ -68,11 +70,17 @@ class EdgeClassifier(torch.nn.Module):
         x = self.lin2(x)
         x = F.relu(x)
 
-        #x = self.lin4(x)
-        #x = F.relu(x)
+        x = self.lin4(x)
+        x = F.relu(x)
         
-        #x = self.lin5(x)
-        #x = F.relu(x)
+        x = self.lin5(x)
+        x = F.relu(x)
+        
+        x = self.lin6(x)
+        x = F.relu(x)
+        
+        x = self.lin7(x)
+        x = F.relu(x)
         
         x = self.lin3(x)
         return F.log_softmax(x, dim=1)
@@ -80,29 +88,30 @@ class EdgeClassifier(torch.nn.Module):
 class MyGCNEdge(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = GCNConv(5, 240, aggr="max")
-        self.conv2 = GCNConv(240, 240, aggr="max")
-        #self.conv3 = GCNConv(64, 64)
-        #self.conv4 = GCNConv(64, 64)
-        #self.embed = Linear(1280, 80)
-        self.embed = Linear(240, 80)
-
+        self.conv1 = GCNConv(5, 640, aggr="max")
+        self.conv2 = GCNConv(640, 640, aggr="max")
+        self.conv3 = GCNConv(640, 640, aggr="max")
+        self.conv4 = GCNConv(640, 640, aggr="max")
+        self.embed = Linear(1280, 80)
+        
     def forward(self, data):        
         x, edge_index, edge_weight = data.x, data.edge_index, data.edge_weight
-
+        
+        #print(len(x), x)
+        
         x = self.conv1(x, edge_index, edge_weight)
         identity = F.relu(x)
         
         x = self.conv2(identity, edge_index, edge_weight)
         x = F.relu(x)
 
-        #x = self.conv4(x, edge_index, edge_weight)
-        #x = F.relu(x)
+        x = self.conv4(x, edge_index, edge_weight)
+        x = F.relu(x)
         
-        #x = self.conv3(x, edge_index, edge_weight)
-        #x = F.relu(x)
+        x = self.conv3(x, edge_index, edge_weight)
+        x = F.relu(x)
         
-        #x = torch.cat((x,identity),1)
+        x = torch.cat((x,identity),1)
         x = self.embed(x)
         return x
     
@@ -118,7 +127,7 @@ def GNNMatching(gnn, classifier, graph, tresholdP = 0.5, tresholdN = 0.0, verbos
         out = gnn(graph)
         out = classifier(classifier.embedEdges(out,graph))  
         pred = torch.exp(out)
-        
+
         scores = []
         for p in pred:
             if p[0] > p[1]: scores.append(0.0)

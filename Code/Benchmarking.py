@@ -15,22 +15,22 @@ random.seed(123)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Current CUDA version: ", torch.version.cuda, "\n")
 
-# try:
-#     #with open('data/MNISTTRAINED/MyModel.pkl', 'rb') as file:
-#     #with open('data/CUSTOMTRAINED/MyModel.pkl', 'rb') as file:
-#     with open('data/tempMyModel.pkl', 'rb') as file:
-#         print("Loading Model")
-#         model = pickle.load(file).to(device)
-#     #with open('data/MNISTTRAINED/MyModelClass.pkl', 'rb') as file:
-#     #with open('data/CUSTOMTRAINED/MyModelClass.pkl', 'rb') as file:
-#     with open('data/tempMyModelClass.pkl', 'rb') as file:
-#         classifier = pickle.load(file).to(device) 
-#         modelLoaded = True
-# except Exception: print("No model found. EXIT")
-# model.eval()
-# classifier.eval()
+try:
+    #with open('data/MNISTTRAINED/MyModel.pkl', 'rb') as file:
+    #with open('data/CUSTOMTRAINED/MyModel.pkl', 'rb') as file:
+    with open('data/tempMyModel.pkl', 'rb') as file:
+        print("Loading Model")
+        model = pickle.load(file).to(device)
+    #with open('data/MNISTTRAINED/MyModelClass.pkl', 'rb') as file:
+    #with open('data/CUSTOMTRAINED/MyModelClass.pkl', 'rb') as file:
+    with open('data/tempMyModelClass.pkl', 'rb') as file:
+        classifier = pickle.load(file).to(device) 
+        modelLoaded = True
+except Exception: print("No model found. EXIT")
+model.eval()
+classifier.eval()
 
-graphs, converted_dataset, target = dl.LoadVal(limit=20)
+graphs, converted_dataset, target = dl.LoadVal(limit=10, skipLine=True)
 
 #graphs, converted_dataset, target = dl.LoadTrain(limit=9, doNormalize=False)
 
@@ -56,12 +56,13 @@ graphs, converted_dataset, target = dl.LoadVal(limit=20)
 # graphs, converted, target = dl.ProccessData(graphs , "custom", skipLine=True)  
 
 print("Total graphs = ", len(graphs))
+print("Total line graphs = ", len(converted_dataset))
 print("----------------")
 
 resultsGNN, resultsGreedy, resultsOpt = [], [], []
 useReduction = False
 
-for idx, graph in enumerate(graphs):
+for indx, graph in enumerate(graphs):
     
     weightSum, weightRed = 0, 0
     if useReduction:
@@ -87,7 +88,15 @@ for idx, graph in enumerate(graphs):
         
     start_time = time.time()
     weightGreedy, pickedEdgeIndeces = gp.GreedyMatchingOrig(graph)
-
+    # print(pickedEdgeIndeces, len(pickedEdgeIndeces))
+    # print(true_edges_idx, len(true_edges_idx))
+    # for e in true_edges_idx:
+    #     print(graph.edge_index[0][e].item(), graph.edge_index[1][e].item(), graph.edge_weight[e].item())
+    # print("GREEEEDY")
+    # for e in pickedEdgeIndeces :
+    #     print(graph.edge_index[0][e].item(), graph.edge_index[1][e].item(), graph.edge_weight[e].item())    
+    # exit()
+    
     weightGreedy += weightRed 
     timeTotal = time.time() - start_time
     resultsGreedy.append([("TIME", timeTotal),("WEIGHT", weightGreedy)])

@@ -1,6 +1,6 @@
 import pickle
 import MyGCN
-import DataLoader as dl
+import MyDataLoader as dl
 from scipy.io import mmread
 import torch
 import random
@@ -11,6 +11,20 @@ import LineGraphConverter as lgc
 import ReductionsManager as rm
 import ssgetpy as ss
 
+import os
+
+folder = './data/custom'
+
+sub_folders = [name for name in os.listdir(folder) if os.path.isdir(os.path.join(folder, name))]
+
+print(sub_folders)
+file_name = 'data/custom/customdatasetfiles.pkl'
+with open(file_name, 'wb') as file:
+    pickle.dump(sub_folders, file)
+    print(f'Object successfully saved to "{file_name}"')    
+    
+exit()
+
 torch.manual_seed(123)
 random.seed(123)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -18,10 +32,10 @@ print("Current CUDA version: ", torch.version.cuda, "\n")
 print("SEARCHING FOR SUITABLE GRAHPS")
 
 try:
-    with open('data/MyModel.pkl', 'rb') as file:
+    with open('data/CUSTOMTRAINED/MyModel.pkl', 'rb') as file:
         print("Loading Model")
         model = pickle.load(file).to(device)
-    with open('data/MyModelClass.pkl', 'rb') as file:
+    with open('data/CUSTOMTRAINED/MyModelClass.pkl', 'rb') as file:
         classifier = pickle.load(file).to(device) 
         modelLoaded = True
 except Exception: print("No model found. EXIT")
@@ -29,26 +43,26 @@ except Exception: print("No model found. EXIT")
 filenames = []
 dataset = ss.search(#group = gr, 
                     #kind='Weighted', 
-                    limit = 10000, 
+                    limit = 10, 
                     rowbounds = (50,10000),
                     colbounds = (50,10000),
                     nzbounds = (10,1000000))
 matrices = dataset.download(destpath=f'data/custom', extract=True)
 for dataitem in dataset:
     filenames.append(dataitem.name)
-exit()
+
 file_name = 'data/custom/customdatasetfiles.pkl'
 with open(file_name, 'wb') as file:
     pickle.dump(filenames, file)
     print(f'Object successfully saved to "{file_name}"')    
-exit()
-names, graphs, lineGraphs, targets, stats = [], [], [], [], []
 
+names, graphs, lineGraphs, targets, stats = [], [], [], [], []
 for filename in filenames:
     print("Current graph:", filename)
     
     mmformat = mmread(f'data/custom/{filename}/{filename}.mtx').toarray()
     graph = dl.FromMMformat(mmformat)
+
     if graph is None: continue
     names.append(filename)
     graphs.append(graph)

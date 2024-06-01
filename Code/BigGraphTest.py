@@ -44,14 +44,14 @@ except Exception: print("No model found. EXIT")
 #graphs, converted_dataset, target = dl.LoadTest(limit=10)
 
 #gr = 'Gset'
-#gr = 'Pajek'
-gr = 'Newman'
+gr = 'Pajek'
+#gr = 'Newman'
 #gr = 'vanHeukelum'
 dataset = ss.search(group = gr, 
                     #kind='Directed Weighted Graph', 
                     limit = 1, 
-                    rowbounds = (2000,100000),
-                    colbounds = (2000,100000))
+                    rowbounds = (35000,222000),
+                    colbounds = (35000,222000))
 
 useReduction = False
 filenames = []
@@ -60,11 +60,17 @@ for dataitem in dataset:
 
 matrices = dataset.download(destpath=f'data/{gr}', extract=True)
 dataset, converted_dataset, resultsGNN, resultsGreedy, resultsOpt = [],[],[],[],[]
+print("TOTAL graphs = ", len(filenames))
+#exit()
 for filename in filenames:
     print("Current graph:", filename)
 
     mmformat = mmread(f'data/{gr}/{filename}/{filename}.mtx').toarray()
-    graph = dl.FromMMformat(mmformat)
+    graph, reason = dl.FromMMformat(mmformat)
+#for graph in graphs:
+    
+    graph = dl.GreedyBad(graph)
+    
     graph = graph.to(device)
     graph.edge_weight = torch.reshape(graph.edge_weight, (len(graph.edge_weight), 1))
     weightSum = 0
@@ -82,17 +88,17 @@ for filename in filenames:
     print("NODES: ", graph.num_nodes)
     edgesnum, nodesnum = graph.num_edges, graph.num_nodes
     if graph.edge_weight is None: graph.edge_weight = graph.edge_attr
-    print("EDGE ATTRS : ", graph.edge_attr)
-    print("EDGE WEIGHTS : ", graph.edge_weight)
-    blossominput = []
+    print("EDGE ATTRS : ", graph.edge_attr[:5])
+    print("EDGE WEIGHTS : ", graph.edge_weight[:5])
+    blossominput = set()
     target = []
     for i in range(len(graph.edge_index[0])):
-        blossominput.append((graph.edge_index[0][i].item(),
+        blossominput.add((graph.edge_index[0][i].item(),
                               graph.edge_index[1][i].item(),
                               graph.edge_attr[i].item()))
     start_time = time.time()
     print("started blossom matching")
-    match=maxWeightMatching(blossominput)
+    match=maxWeightMatching(list(blossominput))
     timeTotal = time.time() - start_time
     print("done blossom matching")    
     target.append(match)
@@ -120,10 +126,11 @@ for filename in filenames:
         duplicates.add((from_node,to_node))
         duplicates.add((to_node,from_node))
         totalWeightOpt += graph.edge_attr[idx]
+        #print("OPTTTTTT", graph.edge_attr[idx])  
+
     print("done weight count")
         
     resultsOpt.append([("TIME", timeTotal),("WEIGHT", totalWeightOpt.item())])
-
 
     print("started gnn matching")
     start_time = time.time()
@@ -134,14 +141,17 @@ for filename in filenames:
     start_time = time.time()
     print("started greedy matching")
     weightGreedy, pickedEdgeIndeces = gp.GreedyMatchingOrig(graph)
+    #for i in pickedEdgeIndeces:
+    #    print("GREED", graph.edge_attr[i])
     weightGreedy += weightRed
+    
     print("GREEEEDY", weightGreedy)
     print("done greedy matching")
     timeTotal = time.time() - start_time
     resultsGreedy.append([("TIME", timeTotal),("WEIGHT", weightGreedy)])
     
     start_time = time.time()
-    graph, weightGnn, pickedNodes, iterations = MyGCN.GNNMatching(model, classifier, graph.to(device), 0.50, 0.0)
+    graph, weightGnn, pickedNodes, iterations = MyGCN.GNNMatching(model, classifier, graph.to(device), 0.7, 0.0)
     
     print("GNN", weightGnn)
     print("GNN iters", iterations)
@@ -159,7 +169,6 @@ for filename in filenames:
                        ("Reduction weight portion", reductionImpact),
                        ("Gnn Dropped Nodes", len(pickedNodes))])
     print("done gnn matching")
-    print("Current graph:", filename)
     print("Nodes = ", nodesnum, "Edges = ", edgesnum)
     
     
